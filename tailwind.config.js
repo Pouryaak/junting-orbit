@@ -1,14 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
-  important: '#junting-orbit-root',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  corePlugins: {
-    preflight: false, // Disable Tailwind's base reset to prevent page interference
-  },
   theme: {
     // Override default spacing to use px instead of rem
     spacing: {

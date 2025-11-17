@@ -2,12 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scoped CSS Variables - only apply within our extension container */
-#junting-orbit-root {
-  /* Base font size - reduced by 40% (16px * 0.6 = 9.6px, rounded to 10px) */
-  font-size: 10px !important;
-  line-height: 1.6 !important;
-  
+/* CSS Variables for the extension */
+:root {
   /* CSS Variables scoped to our extension */
   /* Brand Colors: Primary #2c3a8a, Secondary/Accent #7c5dff */
   --background: 0 0% 100%;
@@ -37,79 +33,60 @@
   --chart-5: 27 87% 67%;
 }
 
+/* Base styles for popup - clean and consistent */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
 /* Ensure all text elements have minimum size - reduced by 40% */
-#junting-orbit-root p,
-#junting-orbit-root span,
-#junting-orbit-root div,
-#junting-orbit-root button,
-#junting-orbit-root input,
-#junting-orbit-root textarea,
-#junting-orbit-root select,
-#junting-orbit-root label {
-  font-size: 14px !important;
-  line-height: 1.6 !important;
-  font-family: inherit !important;
+p,
+span,
+div,
+button,
+input,
+textarea,
+select,
+label {
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: inherit;
 }
 
 /* Headings should be larger - reduced by 40% */
-#junting-orbit-root h1 {
-  font-size: 24px !important;
-  line-height: 1.3 !important;
+h1 {
+  font-size: 24px;
+  line-height: 1.3;
 }
 
-#junting-orbit-root h2 {
-  font-size: 19px !important;
-  line-height: 1.4 !important;
+h2 {
+  font-size: 19px;
+  line-height: 1.4;
 }
 
-#junting-orbit-root h3 {
-  font-size: 17px !important;
-  line-height: 1.5 !important;
+h3 {
+  font-size: 17px;
+  line-height: 1.5;
 }
 
-#junting-orbit-root h4,
-#junting-orbit-root h5,
-#junting-orbit-root h6 {
-  font-size: 14px !important;
-  line-height: 1.6 !important;
+h4,
+h5,
+h6 {
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-/* Override page CSS that sets colors on common selectors - only apply to elements without Tailwind color classes */
-/* Exclude elements inside bg-primary or other colored backgrounds that should have white text */
-#junting-orbit-root h1:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root h2:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root h3:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root h4:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root h5:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root h6:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root p:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]),
-#junting-orbit-root blockquote:not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-primary"]):not([class*="text-secondary"]):not([class*="text-accent"]):not([class*="text-muted"]):not([class*="text-destructive"]):not([class*="text-white"]):not([class*="text-black"]):not([class*="text-foreground"]):not([class*="bg-primary"]):not([class*="bg-secondary"]):not([style*="color"]) {
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Ensure text inside bg-primary or elements with text-primary-foreground uses primary-foreground color */
-#junting-orbit-root .bg-primary h1,
-#junting-orbit-root .bg-primary h2,
-#junting-orbit-root .bg-primary h3,
-#junting-orbit-root .bg-primary h4,
-#junting-orbit-root .bg-primary h5,
-#junting-orbit-root .bg-primary h6,
-#junting-orbit-root .bg-primary p,
-#junting-orbit-root .bg-primary span,
-#junting-orbit-root .bg-primary div,
-#junting-orbit-root [class*="text-primary-foreground"] h1,
-#junting-orbit-root [class*="text-primary-foreground"] h2,
-#junting-orbit-root [class*="text-primary-foreground"] h3,
-#junting-orbit-root [class*="text-primary-foreground"] h4,
-#junting-orbit-root [class*="text-primary-foreground"] h5,
-#junting-orbit-root [class*="text-primary-foreground"] h6,
-#junting-orbit-root [class*="text-primary-foreground"] p,
-#junting-orbit-root [class*="text-primary-foreground"] span,
-#junting-orbit-root [class*="text-primary-foreground"] div {
-  color: hsl(var(--primary-foreground)) !important;
-}
-
-#junting-orbit-root.dark {
+.dark {
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
   --card: 222.2 84% 4.9%;

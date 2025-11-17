@@ -41,6 +41,11 @@ export default defineConfig({
           copyFileSync('src/assets/logo.png', 'dist/logo.png');
         }
         
+        // Rename index.html to popup.html
+        if (existsSync('dist/index.html')) {
+          copyFileSync('dist/index.html', 'dist/popup.html');
+        }
+        
         // Build background script
         await esbuild({
           entryPoints: ['src/background.ts'],
@@ -62,15 +67,26 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
+        popup: resolve(__dirname, 'index.html'),
         content: resolve(__dirname, 'src/content/index.tsx'),
       },
       output: {
-        entryFileNames: '[name].js',
+        entryFileNames: (chunkInfo) => {
+          // Popup entry goes to popup.js, content stays as content.js
+          return chunkInfo.name === 'popup' ? 'popup.js' : '[name].js';
+        },
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
-          // Output CSS as content.css in root
+          // Output CSS files appropriately
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            if (assetInfo.name.includes('popup') || assetInfo.name.includes('index')) {
+              return 'popup.css';
+            }
             return 'content.css';
+          }
+          // Rename index.html to popup.html
+          if (assetInfo.name === 'index.html') {
+            return 'popup.html';
           }
           return 'assets/[name].[ext]';
         },
