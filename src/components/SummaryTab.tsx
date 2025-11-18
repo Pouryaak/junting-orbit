@@ -1,6 +1,10 @@
-import React from 'react';
-import { Sparkles, CheckCircle2, XCircle, TrendingUp } from 'lucide-react';
+import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
 import { cn } from '@/lib/utils';
+import { analyzeJob, extractJobDescription } from '@/services/jobAnalysisService';
+import { handleError, showErrorToUser } from '@/utils/errorHandler';
+import { AlertCircle, BarChart3, CheckCircle2, FileText, RefreshCw, Sparkles, Target, TrendingUp, XCircle, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Button } from './ui/button';
 
 interface FitAssessment {
   label: 'Strong Fit' | 'Medium Fit' | 'Weak Fit';
@@ -10,19 +14,92 @@ interface FitAssessment {
   decisionHelper: 'Apply Immediately' | 'Tailor & Apply' | 'Skip for Now';
 }
 
-// Mock data - will be replaced with real data later
-const mockAssessment: FitAssessment = {
-  label: 'Strong Fit',
-  matchScore: 85,
-  greenFlags: [
-    'Your experience matches 90% of required skills',
-    'Previous role aligns with job responsibilities'
-  ],
-  redFlags: [
-    'Missing 2 years of required experience',
-    'No experience with specific tool mentioned'
-  ],
-  decisionHelper: 'Apply Immediately'
+
+// Empty State Component
+const EmptyState: React.FC<{ onAnalyze: () => void; isLoading: boolean }> = ({ onAnalyze, isLoading }) => {
+  return (
+    <div className="flex flex-col items-center justify-center py-6 px-6 text-center">
+      {/* Icon/Illustration */}
+      <div className="mb-6 relative">
+        <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center">
+          <Sparkles className="h-12 w-12 text-primary" />
+        </div>
+        <div className="absolute -top-2 -right-2 w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+          <Zap className="h-4 w-4 text-white" />
+        </div>
+      </div>
+
+      {/* Heading */}
+      <h2 className="text-2xl font-bold text-foreground mb-3">
+        Get Instant Job Match Analysis
+      </h2>
+
+      {/* Description */}
+      <p className="text-base text-muted-foreground mb-8 max-w-md">
+        Let our AI career expert analyze this job posting against your profile. 
+      </p>
+
+      {/* Features List */}
+      <div className="grid grid-cols-2 gap-4 mb-8 w-full max-w-md">
+        <div className="flex items-start gap-3 p-4 bg-card rounded-lg border">
+          <BarChart3 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="text-left">
+            <div className="font-semibold text-sm mb-1">ATS Score</div>
+            <div className="text-xs text-muted-foreground">Compatibility rating</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3 p-4 bg-card rounded-lg border">
+          <Target className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <div className="text-left">
+            <div className="font-semibold text-sm mb-1">Fit Assessment</div>
+            <div className="text-xs text-muted-foreground">Match analysis</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3 p-4 bg-card rounded-lg border">
+          <FileText className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="text-left">
+            <div className="font-semibold text-sm mb-1">Cover Letter</div>
+            <div className="text-xs text-muted-foreground">AI-generated</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3 p-4 bg-card rounded-lg border">
+          <TrendingUp className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <div className="text-left">
+            <div className="font-semibold text-sm mb-1">Recommendations</div>
+            <div className="text-xs text-muted-foreground">Actionable insights</div>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Button */}
+      <Button
+        onClick={onAnalyze}
+        disabled={isLoading}
+        size="lg"
+        className="w-full max-w-sm bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+      >
+        {isLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
+            Analyzing Job Description...
+          </>
+        ) : (
+          <>
+            <Zap className="h-5 w-5 mr-2" />
+            Analyze This Job Posting
+          </>
+        )}
+      </Button>
+
+      {/* Helper Text */}
+      <p className="text-xs text-muted-foreground mt-4">
+        Make sure you're on a job posting page
+      </p>
+    </div>
+  );
 };
 
 const getFitColor = (label: string) => {
@@ -106,10 +183,158 @@ const ATSGauge: React.FC<{ score: number }> = ({ score }) => {
 };
 
 export const SummaryTab: React.FC = () => {
-  const assessment = mockAssessment;
+  const [assessment, setAssessment] = useState<FitAssessment | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [storedUrl, setStoredUrl] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load stored data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const stored = await getStoredData();
+        const url = await getCurrentTabUrl();
+        
+        setCurrentUrl(url);
+        setStoredUrl(stored.analyzedUrl);
+        
+        if (stored.assessment && stored.analyzedUrl) {
+          setAssessment(stored.assessment);
+        }
+      } catch (error) {
+        const appError = handleError(error, 'LoadStoredData');
+        // Don't show error to user on initial load, just log it
+        console.error('Failed to load stored data:', appError);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Check URL when tab changes
+  useEffect(() => {
+    const checkUrl = async () => {
+      const url = await getCurrentTabUrl();
+      setCurrentUrl(url);
+    };
+
+    // Check immediately
+    checkUrl();
+
+    // Set up interval to check URL changes (popup stays open)
+    const interval = setInterval(checkUrl, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAnalyze = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Get current tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab.id) {
+        throw new Error('No active tab found');
+      }
+
+      // Extract job description using service
+      const jobDescription = await extractJobDescription(tab.id);
+      
+      // Analyze job using service
+      const analysisResult = await analyzeJob({
+        jobDescription: jobDescription.text,
+        url: jobDescription.url,
+      });
+      
+      // Validate response
+      if (!analysisResult.assessment || !analysisResult.coverLetter) {
+        throw new Error('Invalid analysis response');
+      }
+      
+      // Set the assessment data
+      setAssessment(analysisResult.assessment);
+      
+      // Save to storage
+      const stored = await getStoredData();
+      await saveStoredData({
+        ...stored,
+        assessment: analysisResult.assessment,
+        coverLetter: analysisResult.coverLetter,
+        analyzedUrl: jobDescription.url,
+        analyzedAt: Date.now(),
+      });
+      
+      setStoredUrl(jobDescription.url);
+      setCurrentUrl(jobDescription.url);
+      
+      // Notify CoverLetterTab to update (via custom event)
+      window.dispatchEvent(new CustomEvent('coverLetterUpdated', { 
+        detail: { coverLetter: analysisResult.coverLetter } 
+      }));
+    } catch (error) {
+      const appError = handleError(error, 'JobAnalysis');
+      showErrorToUser(appError);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Show loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Check if URL has changed (new job posting)
+  const urlChanged = currentUrl && storedUrl && currentUrl !== storedUrl;
+
+  // Show empty state if no assessment data
+  if (!assessment) {
+    return <EmptyState onAnalyze={handleAnalyze} isLoading={isLoading} />;
+  }
+
+  // Show assessment results with URL change banner if needed
   return (
     <div className="space-y-6">
+      {/* URL Change Banner - Show when user navigated to a new job */}
+      {urlChanged && (
+        <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="font-semibold text-sm mb-1 text-foreground">
+              New Job Posting Detected
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              You're viewing a different job posting. Analyze this new position to get updated insights.
+            </p>
+            <Button
+              onClick={handleAnalyze}
+              disabled={isLoading}
+              size="sm"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Analyze This Job
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* AI Evaluation Badge */}
       <div className="flex items-center gap-2 justify-center p-3 bg-accent/10 rounded-lg border border-accent/20">
         <Sparkles className="h-5 w-5 text-accent" />

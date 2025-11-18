@@ -1,2 +1,2 @@
-/* Content script styles - minimal since we're using popup now */
-/* This file is kept for future use if needed */
+/* Content script styles - intentionally empty to prevent style leakage */
+/* Since we're using a popup, no styles should be injected into web pages */

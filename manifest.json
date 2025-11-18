@@ -5,7 +5,8 @@
   "description": "Interactive browser extension with floating button and slider panel",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -25,14 +26,13 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "css": ["content.css"],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["content.js", "content.css", "logo.png", "popup.html", "popup.js", "popup.css"],
+      "resources": ["content.js", "logo.png", "popup.html", "popup.js", "popup.css"],
       "matches": ["<all_urls>"]
     }
   ],

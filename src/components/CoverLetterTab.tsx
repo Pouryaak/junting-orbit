@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from './ui/button';
+import { getStoredData, saveStoredData } from '@/lib/storage';
 
 // Mock cover letter - will be replaced with AI-generated content later
 const mockCoverLetter = `Dear Hiring Manager,
@@ -17,6 +18,74 @@ Best regards,
 export const CoverLetterTab: React.FC = () => {
   const [coverLetter, setCoverLetter] = useState(mockCoverLetter);
   const [copied, setCopied] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Use mockCoverLetter as fallback if no stored data
+  const [hasStoredData, setHasStoredData] = useState(false);
+
+  // Load stored cover letter on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const stored = await getStoredData();
+        if (stored.coverLetter) {
+          setCoverLetter(stored.coverLetter);
+          setHasStoredData(true);
+        } else {
+          // Use mock if no stored data
+          setCoverLetter(mockCoverLetter);
+          setHasStoredData(false);
+        }
+      } catch (error) {
+        // Silently fail on load - use mock as fallback
+        console.error('Error loading stored cover letter:', error);
+        setCoverLetter(mockCoverLetter);
+        setHasStoredData(false);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    loadData();
+
+    // Listen for cover letter updates from SummaryTab
+    const handleUpdate = (event: CustomEvent) => {
+      if (event.detail?.coverLetter) {
+        setCoverLetter(event.detail.coverLetter);
+        setHasStoredData(true);
+      }
+    };
+
+    window.addEventListener('coverLetterUpdated', handleUpdate as EventListener);
+    return () => {
+      window.removeEventListener('coverLetterUpdated', handleUpdate as EventListener);
+    };
+  }, []);
+
+  // Save cover letter to storage when it changes (debounced)
+  // Only save if user has edited it (not the initial mock)
+  useEffect(() => {
+    if (!isInitialized) return;
+    // Don't save if it's still the mock and we haven't loaded stored data
+    if (!hasStoredData && coverLetter === mockCoverLetter) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const stored = await getStoredData();
+        await saveStoredData({
+          ...stored,
+          coverLetter: coverLetter || null,
+        });
+        setHasStoredData(true);
+      } catch (error) {
+        // Log error but don't interrupt user experience
+        console.error('Error saving cover letter:', error);
+        // Could show a subtle notification here in the future
+      }
+    }, 500); // Debounce: save 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [coverLetter, isInitialized, hasStoredData]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(coverLetter);
