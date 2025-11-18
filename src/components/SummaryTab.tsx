@@ -1,6 +1,7 @@
 import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
 import { cn } from '@/lib/utils';
-import { analyzeJob, extractJobDescription } from '@/services/jobAnalysisService';
+import { analyzeJob as analyzeJobAPI, type FitAssessment as APIFitAssessment } from '@/services/apiService';
+import { extractJobDescription } from '@/services/jobAnalysisService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
 import { AlertCircle, BarChart3, CheckCircle2, FileText, RefreshCw, Sparkles, Target, TrendingUp, XCircle, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -12,6 +13,18 @@ interface FitAssessment {
   greenFlags: string[];
   redFlags: string[];
   decisionHelper: 'Apply Immediately' | 'Tailor & Apply' | 'Skip for Now';
+}
+
+// Convert API response to local format
+function convertAPIAssessment(apiAssessment: APIFitAssessment): FitAssessment {
+  return {
+    label: apiAssessment.label === 'Strong' ? 'Strong Fit' : 
+           apiAssessment.label === 'Medium' ? 'Medium Fit' : 'Weak Fit',
+    matchScore: apiAssessment.match_score,
+    greenFlags: apiAssessment.green_flags,
+    redFlags: apiAssessment.red_flags,
+    decisionHelper: apiAssessment.decision_helper,
+  };
 }
 
 
@@ -243,26 +256,24 @@ export const SummaryTab: React.FC = () => {
       // Extract job description using service
       const jobDescription = await extractJobDescription(tab.id);
       
-      // Analyze job using service
-      const analysisResult = await analyzeJob({
-        jobDescription: jobDescription.text,
-        url: jobDescription.url,
-      });
+      // Analyze job using API
+      const analysisResult = await analyzeJobAPI(
+        jobDescription.text
+        // Optional: add toneOverride and targetRoleOverride from profile if needed
+      );
       
-      // Validate response
-      if (!analysisResult.assessment || !analysisResult.coverLetter) {
-        throw new Error('Invalid analysis response');
-      }
+      // Convert API response to local format
+      const localAssessment = convertAPIAssessment(analysisResult.fit_assessment);
       
       // Set the assessment data
-      setAssessment(analysisResult.assessment);
+      setAssessment(localAssessment);
       
       // Save to storage
       const stored = await getStoredData();
       await saveStoredData({
         ...stored,
-        assessment: analysisResult.assessment,
-        coverLetter: analysisResult.coverLetter,
+        assessment: localAssessment,
+        coverLetter: analysisResult.cover_letter_text,
         analyzedUrl: jobDescription.url,
         analyzedAt: Date.now(),
       });
@@ -272,7 +283,7 @@ export const SummaryTab: React.FC = () => {
       
       // Notify CoverLetterTab to update (via custom event)
       window.dispatchEvent(new CustomEvent('coverLetterUpdated', { 
-        detail: { coverLetter: analysisResult.coverLetter } 
+        detail: { coverLetter: analysisResult.cover_letter_text } 
       }));
     } catch (error) {
       const appError = handleError(error, 'JobAnalysis');

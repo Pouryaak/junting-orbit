@@ -17,6 +17,7 @@ export interface StoredData {
   coverLetter: string | null;
   analyzedUrl: string | null;
   analyzedAt: number | null;
+  hasCompletedOnboarding?: boolean;
 }
 
 const STORAGE_KEY = 'junting-orbit-data';
@@ -38,6 +39,12 @@ function validateStoredData(data: unknown): data is StoredData {
     if (typeof a.matchScore !== 'number' || a.matchScore < 0 || a.matchScore > 100) return false;
     if (!Array.isArray(a.greenFlags) || !Array.isArray(a.redFlags)) return false;
     if (!['Apply Immediately', 'Tailor & Apply', 'Skip for Now'].includes(a.decisionHelper)) return false;
+    if (
+    'hasCompletedOnboarding' in data &&
+    typeof data.hasCompletedOnboarding !== 'boolean'
+  ) {
+    return false;
+  }
   }
   
   // Validate cover letter
@@ -113,6 +120,7 @@ export async function getStoredData(): Promise<StoredData> {
             coverLetter: null,
             analyzedUrl: null,
             analyzedAt: null,
+            hasCompletedOnboarding: false,
           });
           return;
         }
@@ -127,6 +135,7 @@ export async function getStoredData(): Promise<StoredData> {
             coverLetter: null,
             analyzedUrl: null,
             analyzedAt: null,
+            hasCompletedOnboarding: false,
           });
           return;
         }
@@ -160,6 +169,10 @@ export async function saveStoredData(data: StoredData): Promise<void> {
         coverLetter: data.coverLetter ? sanitizeString(data.coverLetter) : null,
         analyzedUrl: data.analyzedUrl ? sanitizeUrl(data.analyzedUrl) : null,
         analyzedAt: data.analyzedAt,
+        hasCompletedOnboarding:
+    typeof data.hasCompletedOnboarding === 'boolean'
+      ? data.hasCompletedOnboarding
+      : false,
       };
       
       // Check storage size (approximate)

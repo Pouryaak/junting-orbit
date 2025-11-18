@@ -1,10 +1,12 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { CoverLetterTab } from "./components/CoverLetterTab"
 import { ExtensionHeader } from "./components/ExtensionHeader"
+import { Onboarding } from "./components/Onboarding"
 import { SettingsTab } from "./components/SettingsTab"
 import { SummaryTab } from "./components/SummaryTab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+import { getStoredData, saveStoredData } from "./lib/storage"
 import "./styles/globals.css"
 
 /**
@@ -12,6 +14,72 @@ import "./styles/globals.css"
  * This is the main UI that appears when users click the extension icon
  */
 function Popup() {
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const stored = await getStoredData();
+        const hasCompleted = stored.hasCompletedOnboarding ?? false;
+        
+        // If user hasn't completed onboarding, show it
+        if (!hasCompleted) {
+          setShowOnboarding(true);
+        } else {
+          setShowOnboarding(false);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        setShowOnboarding(false);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkOnboarding();
+  }, []);
+
+  const handleOnboardingComplete = async () => {
+    const stored = await getStoredData();
+    await saveStoredData({
+      ...stored,
+      hasCompletedOnboarding: true,
+    });
+    setShowOnboarding(false);
+  };
+
+  const handleOnboardingSkip = async () => {
+    const stored = await getStoredData();
+    await saveStoredData({
+      ...stored,
+      hasCompletedOnboarding: true,
+    });
+    setShowOnboarding(false);
+  };
+
+  // Show loading state while checking
+  if (isChecking) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-background min-w-[500px] min-h-[600px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Show onboarding for first-time users
+  if (showOnboarding) {
+    return (
+      <div className="w-full h-full flex flex-col bg-background min-w-[500px] min-h-[600px]">
+        <ExtensionHeader />
+        <div className="flex-1 overflow-y-auto">
+          <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
+        </div>
+      </div>
+    );
+  }
+
+  // Show main UI with tabs
   return (
     <div className="w-full h-full flex flex-col bg-background min-w-[500px]">
       {/* Header - Fixed at top */}

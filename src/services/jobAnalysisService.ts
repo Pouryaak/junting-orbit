@@ -43,6 +43,7 @@ export async function extractJobDescription(tabId: number): Promise<JobDescripti
         // Try to find job description container (common selectors)
         const descriptionSelectors = [
           '[data-testid="job-description"]',
+          '.jobs-description__container',
           '.job-description',
           '#job-description',
           '[class*="description"]',
