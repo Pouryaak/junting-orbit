@@ -1,7 +1,7 @@
 {
   "name": "junting-orbit",
   "version": "1.0.0",
-  "description": "Junting Orbit - Interactive browser extension with floating button and slider panel",
+  "description": "Analyze job listings, track applications, and generate AI cover letters right from the job board.",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode development",

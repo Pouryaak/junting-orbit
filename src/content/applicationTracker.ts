@@ -159,11 +159,6 @@ function findReferenceElement(): HTMLElement | null {
     );
     const saveJobContainer = document.getElementById("saveJobButtonContainer");
 
-    console.log("[Junting Orbit] Indeed reference elements:", {
-      viewJobContainer: !!viewJobContainer,
-      saveJobContainer: !!saveJobContainer,
-    });
-
     return viewJobContainer || saveJobContainer;
   }
 
@@ -357,11 +352,8 @@ function showErrorMessage() {
  * Initialize button injection
  */
 async function initializeButton() {
-  console.log("[Junting Orbit] initializeButton called");
-
   // Check if we're on a job posting page
   const isJobPage = isJobPostingPage();
-  console.log("[Junting Orbit] Is job page:", isJobPage);
 
   if (!isJobPage) {
     return;
@@ -369,7 +361,6 @@ async function initializeButton() {
 
   // Check if button already exists
   if (document.getElementById(BUTTON_ID)) {
-    console.log("[Junting Orbit] Button already exists");
     return;
   }
 
@@ -451,16 +442,13 @@ function observePageChanges() {
 }
 
 // Initialize when DOM is ready
-console.log("[Junting Orbit] Content script loaded on:", window.location.href);
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    console.log("[Junting Orbit] DOM loaded, checking for job page");
     setTimeout(initializeButton, 1000);
     observePageChanges();
   });
 } else {
-  console.log("[Junting Orbit] DOM already loaded, checking for job page");
   setTimeout(initializeButton, 1000);
   observePageChanges();
 }
