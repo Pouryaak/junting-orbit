@@ -6,6 +6,7 @@ import { Onboarding } from "./components/Onboarding"
 import { SettingsTab } from "./components/SettingsTab"
 import { SummaryTab } from "./components/SummaryTab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+import { Toaster } from "./components/ui/sonner"
 import { getStoredData, saveStoredData } from "./lib/storage"
 import "./styles/globals.css"
 
@@ -75,6 +76,7 @@ function Popup() {
         <div className="flex-1 overflow-y-auto">
           <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
         </div>
+        <Toaster />
       </div>
     );
   }
@@ -126,6 +128,7 @@ function Popup() {
           </Tabs>
         </div>
       </div>
+      <Toaster />
     </div>
   )
 }

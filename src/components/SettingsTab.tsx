@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, LogIn, User, FileText, MessageSquare, Briefcase, MapPin, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { getProfile, updateProfile, checkAuth, getLoginUrl, type UserProfile } from '@/services/apiService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
@@ -114,7 +115,7 @@ export const SettingsTab: React.FC = () => {
       });
       
       // Show success message
-      alert('Profile saved successfully!');
+      toast.success('Profile saved successfully!');
     } catch (error) {
       const appError = handleError(error, 'SaveProfile');
       showErrorToUser(appError);
