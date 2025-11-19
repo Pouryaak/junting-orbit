@@ -29,6 +29,7 @@ export interface JobHistoryEntry {
   topGreenFlags: string[]; // Max 3 flags, 150 chars each
   topRedFlags: string[]; // Max 3 flags, 150 chars each
   analyzedAt: number; // Unix timestamp
+  appliedAt?: number; // Unix timestamp when marked as applied (optional)
 }
 
 /**
@@ -247,4 +248,48 @@ export function getHistoryStats(history: JobHistoryEntry[]): {
       : 0;
 
   return { total, strongFit, mediumFit, weakFit, averageScore };
+}
+
+/**
+ * Mark a job as applied by URL
+ * Returns updated history array
+ */
+export async function markJobAsApplied(
+  history: JobHistoryEntry[],
+  url: string
+): Promise<JobHistoryEntry[]> {
+  const jobId = await generateJobId(url);
+
+  return history.map((entry) => {
+    if (entry.id === jobId) {
+      return {
+        ...entry,
+        appliedAt: Date.now(),
+      };
+    }
+    return entry;
+  });
+}
+
+/**
+ * Check if a job has been applied to by URL
+ */
+export async function isJobApplied(
+  history: JobHistoryEntry[],
+  url: string
+): Promise<boolean> {
+  const jobId = await generateJobId(url);
+  const entry = history.find((e) => e.id === jobId);
+  return !!entry?.appliedAt;
+}
+
+/**
+ * Get job entry by URL
+ */
+export async function getJobByUrl(
+  history: JobHistoryEntry[],
+  url: string
+): Promise<JobHistoryEntry | null> {
+  const jobId = await generateJobId(url);
+  return history.find((e) => e.id === jobId) || null;
 }

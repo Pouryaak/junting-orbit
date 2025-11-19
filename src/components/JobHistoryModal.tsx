@@ -16,7 +16,8 @@ import {
   ExternalLink, 
   Filter,
   BarChart3,
-  Calendar
+  Calendar,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { JobHistoryEntry } from '@/lib/jobHistory';
@@ -232,7 +233,7 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
                 </div>
 
                 {/* Fit Label & Decision */}
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className={cn(
                     "px-3 py-1 text-xs font-semibold rounded-full border",
                     getFitColor(entry.label)
@@ -243,6 +244,15 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
                   <span className="text-xs font-medium text-foreground">
                     {entry.decisionHelper}
                   </span>
+                  {entry.appliedAt && (
+                    <>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary/10 text-secondary border border-secondary/30 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Applied
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Flags Preview */}
@@ -284,9 +294,17 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
 
                 {/* Footer: Date & Actions */}
                 <div className="flex items-center justify-between pt-3 border-t">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(entry.analyzedAt)}
-                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(entry.analyzedAt)}
+                    </span>
+                    {entry.appliedAt && (
+                      <span className="text-xs text-secondary font-medium flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Applied: {formatDate(entry.appliedAt)}
+                      </span>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
