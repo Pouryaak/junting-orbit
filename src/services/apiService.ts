@@ -38,6 +38,15 @@ export interface AnalysisResponse {
   cover_letter_text: string;
 }
 
+export type FeedbackCategory = "bug" | "feature";
+
+export interface SubmitFeedbackRequest {
+  type: FeedbackCategory;
+  title: string;
+  message: string;
+  pageUrl?: string;
+}
+
 export interface ApiError {
   error: string;
   details?: unknown;
@@ -219,6 +228,66 @@ export async function analyzeJob(
   }
 
   return response.json();
+}
+
+export async function submitFeedback(
+  payload: SubmitFeedbackRequest
+): Promise<void> {
+  if (!payload.message || payload.message.trim().length < 10) {
+    throw new Error("Feedback message is too short");
+  }
+
+  if (!payload.title || payload.title.trim().length < 3) {
+    throw new Error("Please provide a short title for your feedback");
+  }
+
+  let sanitizedPageUrl: string | undefined;
+  if (payload.pageUrl) {
+    try {
+      const parsed = new URL(payload.pageUrl.trim());
+      if (["http:", "https:"].includes(parsed.protocol)) {
+        sanitizedPageUrl = parsed.toString();
+      }
+    } catch {
+      // Ignore invalid URLs, backend will receive undefined
+      sanitizedPageUrl = undefined;
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      type: payload.type,
+      title: payload.title.trim(),
+      description: payload.message.trim(),
+      pageUrl: sanitizedPageUrl,
+    }),
+  });
+
+  if (response.status === 401) {
+    throw new Error(
+      "You must be signed in to send feedback. Please log in and try again."
+    );
+  }
+
+  if (response.status === 400) {
+    const error: ApiError = await response
+      .json()
+      .catch(() => ({ error: "Invalid feedback payload" }));
+    throw new Error(error.error || "Invalid feedback payload");
+  }
+
+  if (response.status === 415) {
+    throw new Error("Feedback must be sent as JSON");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to submit feedback. Please try again later.");
+  }
 }
 
 /**
