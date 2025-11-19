@@ -45,7 +45,7 @@ export interface StoredData {
   usageUpdatedAt?: number | null;
 }
 
-const STORAGE_KEY = "junting-orbit-data";
+export const STORAGE_KEY = "junting-orbit-data";
 const MAX_STORAGE_SIZE = 1024 * 1024; // 1MB limit for safety
 
 /**

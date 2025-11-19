@@ -17,7 +17,6 @@ import {
 import { extractJobDescription } from '@/services/jobAnalysisService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
 import { Alert } from './ui/alert';
-import { JobHistoryModal } from './JobHistoryModal';
 import { SummaryToolbar } from './summary/SummaryToolbar';
 import { EmptyState } from './summary/EmptyState';
 import { URLChangeBanner } from './summary/URLChangeBanner';
@@ -138,7 +137,6 @@ export const SummaryTab: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [validationError, setValidationError] = useState<ValidationError | null>(null);
   const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [existingJobEntry, setExistingJobEntry] = useState<JobHistoryEntry | null>(null);
   const [rateLimitState, setRateLimitState] = useState<RateLimitState>(DEFAULT_RATE_LIMIT_STATE);
 
@@ -272,6 +270,8 @@ export const SummaryTab: React.FC = () => {
 
       await saveStoredData(nextStored);
 
+      window.dispatchEvent(new Event('jobHistoryUpdated'));
+
       setStoredUrl(jobDescription.url);
       setCurrentUrl(jobDescription.url);
 
@@ -329,11 +329,10 @@ export const SummaryTab: React.FC = () => {
     return (
       <>
         <SummaryToolbar 
-          historyCount={jobHistory.length}
-          onOpenHistory={() => setShowHistoryModal(true)}
           usagePlan={rateLimitState.plan}
           usageLimit={rateLimitState.limit}
           usageRemaining={rateLimitState.remaining}
+          isQuotaDepleted={isQuotaDepleted}
         />
         <EmptyState 
           onAnalyze={handleAnalyze} 
@@ -343,11 +342,6 @@ export const SummaryTab: React.FC = () => {
           isQuotaDepleted={isQuotaDepleted}
           dailyLimit={dailyLimit}
         />
-        <JobHistoryModal
-          open={showHistoryModal}
-          onOpenChange={setShowHistoryModal}
-          history={jobHistory}
-        />
       </>
     );
   }
@@ -356,11 +350,10 @@ export const SummaryTab: React.FC = () => {
   return (
     <>
       <SummaryToolbar 
-        historyCount={jobHistory.length}
-        onOpenHistory={() => setShowHistoryModal(true)}
         usagePlan={rateLimitState.plan}
         usageLimit={rateLimitState.limit}
         usageRemaining={rateLimitState.remaining}
+        isQuotaDepleted={isQuotaDepleted}
       />
 
       <div className="grid grid-cols-2 gap-6">
@@ -381,7 +374,6 @@ export const SummaryTab: React.FC = () => {
               existingJobEntry={existingJobEntry}
               isLoading={isLoading}
               onAnalyze={handleAnalyze}
-              onViewHistory={() => setShowHistoryModal(true)}
               isQuotaDepleted={isQuotaDepleted}
               dailyLimit={dailyLimit}
             />
@@ -400,12 +392,6 @@ export const SummaryTab: React.FC = () => {
           <FitAssessmentCard assessment={assessment} />
         </div>
       </div>
-      
-      <JobHistoryModal
-        open={showHistoryModal}
-        onOpenChange={setShowHistoryModal}
-        history={jobHistory}
-      />
     </>
   );
 };

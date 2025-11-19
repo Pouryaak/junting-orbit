@@ -5,6 +5,7 @@ import { ExtensionHeader } from "./components/ExtensionHeader"
 import { Onboarding } from "./components/Onboarding"
 import { SettingsTab } from "./components/SettingsTab"
 import { SummaryTab } from "./components/SummaryTab"
+import { HistoryTab } from "./components/HistoryTab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
 import { Toaster } from "./components/ui/sonner"
 import { getStoredData, saveStoredData } from "./lib/storage"
@@ -93,7 +94,7 @@ function Popup() {
       <div className="flex-1 overflow-y-auto min-h-0 bg-background">
         <div className="p-6">
           <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="w-full h-14 grid grid-cols-3 mb-6 bg-muted rounded-lg p-1.5 gap-1">
+            <TabsList className="w-full h-14 grid grid-cols-4 mb-6 bg-muted rounded-lg p-1.5 gap-1">
               <TabsTrigger 
                 value="summary" 
                 className="text-sm font-semibold rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all hover:bg-background/50"
@@ -105,6 +106,12 @@ function Popup() {
                 className="text-sm font-semibold rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all hover:bg-background/50"
               >
                 Cover Letter
+              </TabsTrigger>
+              <TabsTrigger 
+                value="history" 
+                className="text-sm font-semibold rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all hover:bg-background/50"
+              >
+                History
               </TabsTrigger>
               <TabsTrigger 
                 value="settings" 
@@ -120,6 +127,10 @@ function Popup() {
             
             <TabsContent value="cover-letter" className="mt-0 focus-visible:outline-none">
               <CoverLetterTab />
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-0 focus-visible:outline-none">
+              <HistoryTab />
             </TabsContent>
             
             <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
