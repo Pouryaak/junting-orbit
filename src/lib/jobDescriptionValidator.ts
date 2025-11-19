@@ -49,8 +49,9 @@ const JOB_URL_PATTERNS = [
   },
   { domain: "linkedin.com", pattern: /\/jobs\/view\//i, name: "LinkedIn" },
 
-  // Indeed
-  { domain: "indeed.com", pattern: /\/jobs\//i, name: "Indeed" },
+  // Indeed - /jobs with query params or /viewjob
+  { domain: "indeed.com", pattern: /\/jobs\?.*vjk=/i, name: "Indeed" },
+  { domain: "indeed.com", pattern: /\/viewjob/i, name: "Indeed" },
 
   // Glassdoor
   { domain: "glassdoor.com", pattern: /\/job\//i, name: "Glassdoor" },

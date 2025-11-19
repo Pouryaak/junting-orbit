@@ -1,19 +1,23 @@
 /**
- * Settings Tab Component
- * Handles user authentication, profile management, and settings
+ * Profile Tab Component
+ * Handles user authentication, profile management with caching
  */
 
 import React, { useState, useEffect } from 'react';
-import { Save, LogIn, User, FileText, MessageSquare, Briefcase, MapPin, Loader2, ExternalLink } from 'lucide-react';
+import { Save, LogIn, User, FileText, MessageSquare, Briefcase, MapPin, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { getProfile, updateProfile, checkAuth, getLoginUrl, type UserProfile } from '@/services/apiService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
+import { getStoredData, saveStoredData } from '@/lib/storage';
 import { cn } from '@/lib/utils';
+
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours (1 day) cache
 
 export const SettingsTab: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({
     full_name: null,
     resume_text: null,
@@ -22,17 +26,52 @@ export const SettingsTab: React.FC = () => {
     location: null,
   });
 
-  // Check authentication and load profile on mount
+  // Check authentication and load profile on mount (with caching)
   useEffect(() => {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
+        const stored = await getStoredData();
+        
+        // Check if we have cached profile data
+        const now = Date.now();
+        const hasUserProfile = !!stored.userProfile;
+        const hasCachedAt = !!stored.userProfile?.cachedAt;
+        const cacheAge = stored.userProfile?.cachedAt ? (now - stored.userProfile.cachedAt) : null;
+        const isWithinDuration = cacheAge !== null && cacheAge < CACHE_DURATION;
+        
+        const hasValidCache = hasUserProfile && hasCachedAt && isWithinDuration;
+        
+        if (hasValidCache && stored.userProfile) {
+          // Use cached data - no API call
+          setIsAuthenticated(true);
+          setProfile({
+            full_name: stored.userProfile.full_name,
+            resume_text: stored.userProfile.resume_text,
+            preferred_tone: stored.userProfile.preferred_tone,
+            target_role: stored.userProfile.target_role,
+            location: stored.userProfile.location,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Cache miss or expired - fetch from backend
         const authStatus = await checkAuth();
         setIsAuthenticated(authStatus);
 
         if (authStatus) {
           const userProfile = await getProfile();
           setProfile(userProfile);
+          
+          // Cache the profile
+          await saveStoredData({
+            ...stored,
+            userProfile: {
+              ...userProfile,
+              cachedAt: Date.now(),
+            },
+          });
         }
       } catch (error) {
         const appError = handleError(error, 'LoadProfile');
@@ -63,13 +102,47 @@ export const SettingsTab: React.FC = () => {
       
       const updatedProfile = await updateProfile(profileUpdate);
       setProfile(updatedProfile);
-      // Show success message (could be a toast in the future)
+      
+      // Update cache
+      const stored = await getStoredData();
+      await saveStoredData({
+        ...stored,
+        userProfile: {
+          ...updatedProfile,
+          cachedAt: Date.now(),
+        },
+      });
+      
+      // Show success message
       alert('Profile saved successfully!');
     } catch (error) {
       const appError = handleError(error, 'SaveProfile');
       showErrorToUser(appError);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const userProfile = await getProfile();
+      setProfile(userProfile);
+      
+      // Update cache
+      const stored = await getStoredData();
+      await saveStoredData({
+        ...stored,
+        userProfile: {
+          ...userProfile,
+          cachedAt: Date.now(),
+        },
+      });
+    } catch (error) {
+      const appError = handleError(error, 'RefreshProfile');
+      showErrorToUser(appError);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -127,24 +200,44 @@ export const SettingsTab: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-semibold">Profile Settings</h3>
-        <Button
-          onClick={handleSave}
-          disabled={isSaving}
-          size="sm"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+          >
+            {isRefreshing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Full Name */}

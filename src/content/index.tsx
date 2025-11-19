@@ -7,4 +7,3 @@
  */
 
 // This will be used later to read page content and send to popup
-console.log('Junting Orbit content script loaded - ready for page reading');

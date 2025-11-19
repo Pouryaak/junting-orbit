@@ -108,7 +108,7 @@ function Popup() {
                 value="settings" 
                 className="text-sm font-semibold rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all hover:bg-background/50"
               >
-                Settings
+                Profile
               </TabsTrigger>
             </TabsList>
             
