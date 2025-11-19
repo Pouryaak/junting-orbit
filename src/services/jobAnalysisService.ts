@@ -1,13 +1,13 @@
 /**
  * Job Analysis Service
  * Handles communication with backend API and job description extraction
- * 
+ *
  * Security: Input validation, output sanitization, error handling
  * Testability: Injectable dependencies, pure functions where possible
  * Extensibility: Easy to add new job sites and analysis types
  */
 
-import type { StoredData } from '@/lib/storage';
+import type { StoredData } from "@/lib/storage";
 
 export interface JobDescription {
   text: string;
@@ -22,7 +22,7 @@ export interface AnalysisRequest {
 }
 
 export interface AnalysisResponse {
-  assessment: StoredData['assessment'];
+  assessment: StoredData["assessment"];
   coverLetter: string;
 }
 
@@ -30,41 +30,81 @@ export interface AnalysisResponse {
  * Extract job description from page
  * Modular design allows easy extension for different job sites
  */
-export async function extractJobDescription(tabId: number): Promise<JobDescription> {
+export async function extractJobDescription(
+  tabId: number
+): Promise<JobDescription> {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
         // Base extraction - can be extended for specific sites
         const url = window.location.href;
-        const title = document.querySelector('h1')?.textContent?.trim() || '';
-        const company = document.querySelector('[data-testid="company-name"], .company-name, h2')?.textContent?.trim() || '';
-        
+        const title = document.querySelector("h1")?.textContent?.trim() || "";
+        const company =
+          document
+            .querySelector('[data-testid="company-name"], .company-name, h2')
+            ?.textContent?.trim() || "";
+        const hostname = window.location.hostname.toLowerCase();
+        let jobDescription = "";
+        const collectDeepText = (root: Element): string => {
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          const parts: string[] = [];
+
+          while (walker.nextNode()) {
+            const value = walker.currentNode.textContent?.trim();
+            if (value) {
+              parts.push(value);
+            }
+          }
+
+          return parts.join("\n");
+        };
+
+        // Indeed-specific: grab full nested content from jobDescriptionText container
+        if (hostname.includes("indeed.com")) {
+          const indeedDescription =
+            document.getElementById("jobDescriptionText");
+          if (indeedDescription) {
+            jobDescription = collectDeepText(indeedDescription);
+          }
+        }
+
+        // Seek-specific: capture nested content from jobAdDetails container
+        if (!jobDescription && hostname.includes("seek.com")) {
+          const seekDescription = document.querySelector(
+            '[data-automation="jobAdDetails"]'
+          );
+          if (seekDescription) {
+            jobDescription = collectDeepText(seekDescription);
+          }
+        }
+
         // Try to find job description container (common selectors)
         const descriptionSelectors = [
+          "#jobDescriptionText",
+          '[data-automation="jobAdDetails"]',
           '[data-testid="job-description"]',
-          '.jobs-description__container',
-          '.job-description',
-          '#job-description',
+          ".jobs-description__container",
+          ".job-description",
+          "#job-description",
           '[class*="description"]',
-          'main',
-          'article',
+          "main",
+          "article",
         ];
-        
-        let jobDescription = '';
+
         for (const selector of descriptionSelectors) {
           const element = document.querySelector(selector);
           if (element) {
-            jobDescription = (element as HTMLElement).innerText || element.textContent || '';
+            jobDescription = collectDeepText(element);
             if (jobDescription.length > 100) break; // Found substantial content
           }
         }
-        
+
         // Fallback to body if no specific container found
         if (!jobDescription || jobDescription.length < 100) {
-          jobDescription = document.body.innerText || '';
+          jobDescription = document.body.innerText || "";
         }
-        
+
         return {
           text: jobDescription.trim(),
           url,
@@ -75,14 +115,14 @@ export async function extractJobDescription(tabId: number): Promise<JobDescripti
     });
 
     const pageData = results[0]?.result;
-    
+
     if (!pageData || !pageData.text || pageData.text.length < 50) {
-      throw new Error('Could not extract sufficient job description from page');
+      throw new Error("Could not extract sufficient job description from page");
     }
 
     // Validate and sanitize
     if (pageData.text.length > 50000) {
-      throw new Error('Job description too large');
+      throw new Error("Job description too large");
     }
 
     return {
@@ -95,13 +135,13 @@ export async function extractJobDescription(tabId: number): Promise<JobDescripti
     if (error instanceof Error) {
       throw new Error(`Failed to extract job description: ${error.message}`);
     }
-    throw new Error('Failed to extract job description: Unknown error');
+    throw new Error("Failed to extract job description: Unknown error");
   }
 }
 
 /**
  * Analyze job description via backend API
- * 
+ *
  * @param request - Analysis request with job description and URL
  * @returns Analysis response with assessment and cover letter
  * @throws {Error} If API call fails
@@ -112,11 +152,11 @@ export async function analyzeJob(
 ): Promise<AnalysisResponse> {
   // Validate input
   if (!request.jobDescription || request.jobDescription.length < 50) {
-    throw new Error('Job description is too short or missing');
+    throw new Error("Job description is too short or missing");
   }
 
   if (!request.url) {
-    throw new Error('URL is required');
+    throw new Error("URL is required");
   }
 
   // TODO: Replace with actual API endpoint
@@ -153,21 +193,21 @@ export async function analyzeJob(
     */
 
     // Mock response for development
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     return {
       assessment: {
-        label: 'Strong Fit',
+        label: "Strong Fit",
         matchScore: 85,
         greenFlags: [
-          'Your experience matches 90% of required skills',
-          'Previous role aligns with job responsibilities',
+          "Your experience matches 90% of required skills",
+          "Previous role aligns with job responsibilities",
         ],
         redFlags: [
-          'Missing 2 years of required experience',
-          'No experience with specific tool mentioned',
+          "Missing 2 years of required experience",
+          "No experience with specific tool mentioned",
         ],
-        decisionHelper: 'Apply Immediately',
+        decisionHelper: "Apply Immediately",
       },
       coverLetter: `Dear Hiring Manager,
 
@@ -184,27 +224,38 @@ Best regards,
     if (error instanceof Error) {
       throw new Error(`Analysis failed: ${error.message}`);
     }
-    throw new Error('Analysis failed: Unknown error');
+    throw new Error("Analysis failed: Unknown error");
   }
 }
 
 /**
  * Validate analysis response structure
  */
-export function validateAnalysisResponse(data: unknown): data is AnalysisResponse {
-  if (!data || typeof data !== 'object') return false;
-  
+export function validateAnalysisResponse(
+  data: unknown
+): data is AnalysisResponse {
+  if (!data || typeof data !== "object") return false;
+
   const d = data as Partial<AnalysisResponse>;
-  
-  if (!d.assessment || typeof d.assessment !== 'object') return false;
-  if (!d.coverLetter || typeof d.coverLetter !== 'string') return false;
-  
+
+  if (!d.assessment || typeof d.assessment !== "object") return false;
+  if (!d.coverLetter || typeof d.coverLetter !== "string") return false;
+
   const a = d.assessment;
-  if (!['Strong Fit', 'Medium Fit', 'Weak Fit'].includes(a.label)) return false;
-  if (typeof a.matchScore !== 'number' || a.matchScore < 0 || a.matchScore > 100) return false;
+  if (!["Strong Fit", "Medium Fit", "Weak Fit"].includes(a.label)) return false;
+  if (
+    typeof a.matchScore !== "number" ||
+    a.matchScore < 0 ||
+    a.matchScore > 100
+  )
+    return false;
   if (!Array.isArray(a.greenFlags) || !Array.isArray(a.redFlags)) return false;
-  if (!['Apply Immediately', 'Tailor & Apply', 'Skip for Now'].includes(a.decisionHelper)) return false;
-  
+  if (
+    !["Apply Immediately", "Tailor & Apply", "Skip for Now"].includes(
+      a.decisionHelper
+    )
+  )
+    return false;
+
   return true;
 }
-

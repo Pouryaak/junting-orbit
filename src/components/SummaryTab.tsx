@@ -114,9 +114,9 @@ export const SummaryTab: React.FC = () => {
       
       const analysisResult = await analyzeJobAPI(jobDescription.text);
       const localAssessment = convertAPIAssessment(analysisResult.fit_assessment);
-      
+
       setAssessment(localAssessment);
-      
+
       const historyEntry = await createHistoryEntry({
         url: jobDescription.url,
         title: jobDescription.title,
@@ -127,10 +127,10 @@ export const SummaryTab: React.FC = () => {
         greenFlags: localAssessment.greenFlags,
         redFlags: localAssessment.redFlags,
       });
-      
+
       const updatedHistory = addToHistory(jobHistory, historyEntry);
       setJobHistory(updatedHistory);
-      
+
       const stored = await getStoredData();
       await saveStoredData({
         ...stored,
@@ -140,13 +140,15 @@ export const SummaryTab: React.FC = () => {
         analyzedAt: Date.now(),
         jobHistory: updatedHistory,
       });
-      
+
       setStoredUrl(jobDescription.url);
       setCurrentUrl(jobDescription.url);
-      
-      window.dispatchEvent(new CustomEvent('coverLetterUpdated', { 
-        detail: { coverLetter: analysisResult.cover_letter_text } 
-      }));
+
+      window.dispatchEvent(
+        new CustomEvent('coverLetterUpdated', {
+          detail: { coverLetter: analysisResult.cover_letter_text },
+        })
+      );
     } catch (error) {
       const appError = handleError(error, 'JobAnalysis');
       showErrorToUser(appError);

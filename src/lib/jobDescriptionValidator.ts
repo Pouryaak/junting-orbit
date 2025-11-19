@@ -64,6 +64,9 @@ const JOB_URL_PATTERNS = [
   // ZipRecruiter
   { domain: "ziprecruiter.com", pattern: /\/jobs\//i, name: "ZipRecruiter" },
 
+  // Seek (Australia, New Zealand, etc.)
+  { domain: "seek.com", pattern: /\/jobs\?.*jobid=/i, name: "Seek" },
+
   // AngelList/Wellfound
   { domain: "wellfound.com", pattern: /\/jobs\//i, name: "Wellfound" },
   { domain: "angel.co", pattern: /\/jobs\//i, name: "AngelList" },
