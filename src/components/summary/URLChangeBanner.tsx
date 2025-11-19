@@ -14,6 +14,8 @@ interface URLChangeBannerProps {
   isLoading: boolean;
   onAnalyze: () => void;
   onViewHistory: () => void;
+  isQuotaDepleted: boolean;
+  dailyLimit: number | null;
 }
 
 export const URLChangeBanner: React.FC<URLChangeBannerProps> = ({
@@ -21,6 +23,8 @@ export const URLChangeBanner: React.FC<URLChangeBannerProps> = ({
   isLoading,
   onAnalyze,
   onViewHistory,
+  isQuotaDepleted,
+  dailyLimit,
 }) => {
   return (
     <div className={cn(
@@ -57,29 +61,35 @@ export const URLChangeBanner: React.FC<URLChangeBannerProps> = ({
               View in History
             </Button>
           )}
-          <Button
-            onClick={onAnalyze}
-            disabled={isLoading}
-            size="sm"
-            className={cn(
-              "text-xs",
-              existingJobEntry 
-                ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                : "bg-accent hover:bg-accent/90 text-accent-foreground"
-            )}
-          >
-            {isLoading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-3 w-3 mr-1" />
-                {existingJobEntry ? "Re-analyze Job" : "Analyze This Job"}
-              </>
-            )}
-          </Button>
+          {isQuotaDepleted ? (
+            <div className="flex-1 min-w-[180px] rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-primary">
+              Daily free analyses (limit {dailyLimit ?? 5}) are all used up for today. Fresh credits land tomorrow, and premium (coming soon) will unlock unlimited reruns. ✨
+            </div>
+          ) : (
+            <Button
+              onClick={onAnalyze}
+              disabled={isLoading}
+              size="sm"
+              className={cn(
+                "text-xs",
+                existingJobEntry 
+                  ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  : "bg-accent hover:bg-accent/90 text-accent-foreground"
+              )}
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  {existingJobEntry ? "Re-analyze Job" : "Analyze This Job"}
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

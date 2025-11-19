@@ -4,10 +4,16 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { validateJobDescription, type ValidationError } from '@/lib/jobDescriptionValidator';
 import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
 import { createHistoryEntry, addToHistory, getJobByUrl, type JobHistoryEntry } from '@/lib/jobHistory';
-import { analyzeJob as analyzeJobAPI, type FitAssessment as APIFitAssessment } from '@/services/apiService';
+import {
+  analyzeJob as analyzeJobAPI,
+  type FitAssessment as APIFitAssessment,
+  RateLimitError,
+  type RateLimitInfo,
+} from '@/services/apiService';
 import { extractJobDescription } from '@/services/jobAnalysisService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
 import { Alert } from './ui/alert';
@@ -32,6 +38,98 @@ function convertAPIAssessment(apiAssessment: APIFitAssessment): FitAssessment {
   };
 }
 
+interface RateLimitState {
+  plan: string | null;
+  limit: number | null;
+  remaining: number | null;
+  updatedAt: number | null;
+}
+
+const DEFAULT_RATE_LIMIT_STATE: RateLimitState = {
+  plan: null,
+  limit: null,
+  remaining: null,
+  updatedAt: null,
+};
+
+function isSameDay(timestamp: number | null, reference: number): boolean {
+  if (!timestamp) {
+    return false;
+  }
+
+  const last = new Date(timestamp);
+  const current = new Date(reference);
+
+  return (
+    last.getFullYear() === current.getFullYear() &&
+    last.getMonth() === current.getMonth() &&
+    last.getDate() === current.getDate()
+  );
+}
+
+function deriveRateLimitState(
+  info: RateLimitInfo | null,
+  previous: RateLimitState
+): RateLimitState | null {
+  if (!info) {
+    return null;
+  }
+
+  let planValue =
+    info.plan !== null && info.plan !== undefined
+      ? info.plan.toLowerCase()
+      : previous.plan;
+
+  if (!planValue && typeof info.limit === 'number') {
+    planValue = 'free';
+  }
+
+  const now = Date.now();
+
+  if (planValue === 'premium') {
+    return {
+      plan: 'premium',
+      limit: null,
+      remaining: null,
+      updatedAt: now,
+    };
+  }
+
+  const limit =
+    typeof info.limit === 'number' && !Number.isNaN(info.limit)
+      ? info.limit
+      : previous.limit;
+
+  const remaining =
+    typeof info.remaining === 'number' && !Number.isNaN(info.remaining)
+      ? Math.max(info.remaining, 0)
+      : previous.remaining;
+
+  return {
+    plan: planValue,
+    limit,
+    remaining,
+    updatedAt: now,
+  };
+}
+
+function isRateLimited(rate: RateLimitState, reference: number): boolean {
+  if (rate.plan === 'premium') {
+    return false;
+  }
+
+  if (
+    rate.limit !== null &&
+    rate.remaining !== null &&
+    rate.remaining <= 0 &&
+    isSameDay(rate.updatedAt, reference)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export const SummaryTab: React.FC = () => {
   const [assessment, setAssessment] = useState<FitAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +140,10 @@ export const SummaryTab: React.FC = () => {
   const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [existingJobEntry, setExistingJobEntry] = useState<JobHistoryEntry | null>(null);
+  const [rateLimitState, setRateLimitState] = useState<RateLimitState>(DEFAULT_RATE_LIMIT_STATE);
+
+  const isQuotaDepleted = isRateLimited(rateLimitState, Date.now());
+  const dailyLimit = rateLimitState.limit ?? null;
 
   // Load stored data on mount
   useEffect(() => {
@@ -61,6 +163,13 @@ export const SummaryTab: React.FC = () => {
         if (stored.jobHistory && Array.isArray(stored.jobHistory)) {
           setJobHistory(stored.jobHistory);
         }
+
+        setRateLimitState({
+          plan: stored.usagePlan ?? null,
+          limit: stored.usageLimit ?? null,
+          remaining: stored.usageRemaining ?? null,
+          updatedAt: stored.usageUpdatedAt ?? null,
+        });
       } catch (error) {
         const appError = handleError(error, 'LoadStoredData');
         console.error('Failed to load stored data:', appError);
@@ -97,6 +206,14 @@ export const SummaryTab: React.FC = () => {
     setValidationError(null);
     
     try {
+      const now = Date.now();
+
+      if (isRateLimited(rateLimitState, now)) {
+        toast.error("All free analyses used for today 🎉 Fresh credits land tomorrow. Premium (coming soon) unlocks unlimited runs.");
+        setIsLoading(false);
+        return;
+      }
+
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab.id) {
@@ -112,8 +229,13 @@ export const SummaryTab: React.FC = () => {
         return;
       }
       
-      const analysisResult = await analyzeJobAPI(jobDescription.text);
-      const localAssessment = convertAPIAssessment(analysisResult.fit_assessment);
+      const { analysis, rateLimit } = await analyzeJobAPI(jobDescription.text);
+      const localAssessment = convertAPIAssessment(analysis.fit_assessment);
+      const rateUpdate = deriveRateLimitState(rateLimit, rateLimitState);
+
+      if (rateUpdate) {
+        setRateLimitState(rateUpdate);
+      }
 
       setAssessment(localAssessment);
 
@@ -132,26 +254,60 @@ export const SummaryTab: React.FC = () => {
       setJobHistory(updatedHistory);
 
       const stored = await getStoredData();
-      await saveStoredData({
+      const nextStored = {
         ...stored,
         assessment: localAssessment,
-        coverLetter: analysisResult.cover_letter_text,
+        coverLetter: analysis.cover_letter_text,
         analyzedUrl: jobDescription.url,
         analyzedAt: Date.now(),
         jobHistory: updatedHistory,
-      });
+      };
+
+      if (rateUpdate) {
+        nextStored.usagePlan = rateUpdate.plan;
+        nextStored.usageLimit = rateUpdate.limit;
+        nextStored.usageRemaining = rateUpdate.remaining;
+        nextStored.usageUpdatedAt = rateUpdate.updatedAt;
+      }
+
+      await saveStoredData(nextStored);
 
       setStoredUrl(jobDescription.url);
       setCurrentUrl(jobDescription.url);
 
       window.dispatchEvent(
         new CustomEvent('coverLetterUpdated', {
-          detail: { coverLetter: analysisResult.cover_letter_text },
+          detail: { coverLetter: analysis.cover_letter_text },
         })
       );
     } catch (error) {
-      const appError = handleError(error, 'JobAnalysis');
-      showErrorToUser(appError);
+      if (error instanceof RateLimitError) {
+        const fallbackRateState: RateLimitState = {
+          plan: rateLimitState.plan,
+          limit: rateLimitState.limit,
+          remaining: 0,
+          updatedAt: Date.now(),
+        };
+
+        const nextRateState =
+          deriveRateLimitState(error.rateLimit, rateLimitState) || fallbackRateState;
+
+        setRateLimitState(nextRateState);
+
+        const stored = await getStoredData();
+        await saveStoredData({
+          ...stored,
+          usagePlan: nextRateState.plan,
+          usageLimit: nextRateState.limit,
+          usageRemaining: nextRateState.remaining,
+          usageUpdatedAt: nextRateState.updatedAt,
+        });
+
+        toast.error(error.message);
+      } else {
+        const appError = handleError(error, 'JobAnalysis');
+        showErrorToUser(appError);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -175,12 +331,17 @@ export const SummaryTab: React.FC = () => {
         <SummaryToolbar 
           historyCount={jobHistory.length}
           onOpenHistory={() => setShowHistoryModal(true)}
+          usagePlan={rateLimitState.plan}
+          usageLimit={rateLimitState.limit}
+          usageRemaining={rateLimitState.remaining}
         />
         <EmptyState 
           onAnalyze={handleAnalyze} 
           isLoading={isLoading}
           validationError={validationError}
           onDismissError={() => setValidationError(null)}
+          isQuotaDepleted={isQuotaDepleted}
+          dailyLimit={dailyLimit}
         />
         <JobHistoryModal
           open={showHistoryModal}
@@ -197,6 +358,9 @@ export const SummaryTab: React.FC = () => {
       <SummaryToolbar 
         historyCount={jobHistory.length}
         onOpenHistory={() => setShowHistoryModal(true)}
+        usagePlan={rateLimitState.plan}
+        usageLimit={rateLimitState.limit}
+        usageRemaining={rateLimitState.remaining}
       />
 
       <div className="grid grid-cols-2 gap-6">
@@ -218,6 +382,8 @@ export const SummaryTab: React.FC = () => {
               isLoading={isLoading}
               onAnalyze={handleAnalyze}
               onViewHistory={() => setShowHistoryModal(true)}
+              isQuotaDepleted={isQuotaDepleted}
+              dailyLimit={dailyLimit}
             />
           )}
 

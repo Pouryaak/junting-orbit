@@ -47,6 +47,29 @@ export interface SubmitFeedbackRequest {
   pageUrl?: string;
 }
 
+export interface RateLimitInfo {
+  plan: string | null;
+  limit?: number | null;
+  remaining?: number | null;
+}
+
+export interface AnalyzeJobResult {
+  analysis: AnalysisResponse;
+  rateLimit: RateLimitInfo | null;
+}
+
+export class RateLimitError extends Error {
+  public readonly rateLimit: RateLimitInfo;
+  public readonly status: number;
+
+  constructor(message: string, rateLimit: RateLimitInfo, status = 429) {
+    super(message);
+    this.name = "RateLimitError";
+    this.rateLimit = rateLimit;
+    this.status = status;
+  }
+}
+
 export interface ApiError {
   error: string;
   details?: unknown;
@@ -143,11 +166,33 @@ export async function updateProfile(
  * @param targetRoleOverride - Optional target role override
  * @throws {Error} If request fails, missing resume, or other errors
  */
+function parseRateLimitHeaders(headers: Headers): RateLimitInfo | null {
+  const planHeader = headers.get("X-Usage-Plan");
+  const limitHeader = headers.get("X-RateLimit-Limit");
+  const remainingHeader = headers.get("X-RateLimit-Remaining");
+
+  if (!planHeader && !limitHeader && !remainingHeader) {
+    return null;
+  }
+
+  const plan = planHeader ? planHeader.toLowerCase() : null;
+  const limit = limitHeader ? Number.parseInt(limitHeader, 10) : null;
+  const remaining = remainingHeader
+    ? Number.parseInt(remainingHeader, 10)
+    : null;
+
+  return {
+    plan,
+    limit: Number.isNaN(limit) ? null : limit,
+    remaining: Number.isNaN(remaining) ? null : remaining,
+  };
+}
+
 export async function analyzeJob(
   jobDescription: string,
   toneOverride?: "neutral" | "warm" | "formal",
   targetRoleOverride?: string
-): Promise<AnalysisResponse> {
+): Promise<AnalyzeJobResult> {
   const payload: {
     jobDescription: string;
     toneOverride?: "neutral" | "warm" | "formal";
@@ -173,6 +218,8 @@ export async function analyzeJob(
     body: JSON.stringify(payload),
   });
 
+  const rateLimit = parseRateLimitHeaders(response.headers);
+
   if (response.status === 401) {
     throw new Error(
       "Unauthorized - Please log in at https://junting-orbit-server.vercel.app/login"
@@ -194,6 +241,26 @@ export async function analyzeJob(
     }
 
     throw new Error(error.error || "Invalid request body");
+  }
+
+  if (response.status === 429) {
+    const info: RateLimitInfo = rateLimit || {
+      plan: null,
+      limit: null,
+      remaining: 0,
+    };
+
+    throw new RateLimitError(
+      "All free analyses used for today 🎉 Fresh credits land tomorrow. Premium (coming soon) unlocks unlimited runs.",
+      {
+        plan: info.plan,
+        limit: typeof info.limit === "number" ? info.limit : null,
+        remaining:
+          typeof info.remaining === "number" && info.remaining >= 0
+            ? info.remaining
+            : 0,
+      }
+    );
   }
 
   if (response.status === 502) {
@@ -227,7 +294,12 @@ export async function analyzeJob(
     throw new Error("Failed to analyze job");
   }
 
-  return response.json();
+  const analysis: AnalysisResponse = await response.json();
+
+  return {
+    analysis,
+    rateLimit,
+  };
 }
 
 export async function submitFeedback(

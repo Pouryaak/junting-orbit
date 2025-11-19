@@ -39,6 +39,10 @@ export interface StoredData {
     topRedFlags: string[];
     analyzedAt: number;
   }>;
+  usagePlan?: string | null;
+  usageLimit?: number | null;
+  usageRemaining?: number | null;
+  usageUpdatedAt?: number | null;
 }
 
 const STORAGE_KEY = "junting-orbit-data";
@@ -101,6 +105,37 @@ function validateStoredData(data: unknown): data is StoredData {
     if (typeof d.analyzedAt !== "number" || d.analyzedAt < 0) return false;
   }
 
+  if ("usagePlan" in d && d.usagePlan !== undefined && d.usagePlan !== null) {
+    if (typeof d.usagePlan !== "string") return false;
+  }
+
+  if (
+    "usageLimit" in d &&
+    d.usageLimit !== undefined &&
+    d.usageLimit !== null &&
+    (typeof d.usageLimit !== "number" || Number.isNaN(d.usageLimit))
+  ) {
+    return false;
+  }
+
+  if (
+    "usageRemaining" in d &&
+    d.usageRemaining !== undefined &&
+    d.usageRemaining !== null &&
+    (typeof d.usageRemaining !== "number" || Number.isNaN(d.usageRemaining))
+  ) {
+    return false;
+  }
+
+  if (
+    "usageUpdatedAt" in d &&
+    d.usageUpdatedAt !== undefined &&
+    d.usageUpdatedAt !== null &&
+    (typeof d.usageUpdatedAt !== "number" || d.usageUpdatedAt < 0)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -160,6 +195,10 @@ export async function getStoredData(): Promise<StoredData> {
             analyzedUrl: null,
             analyzedAt: null,
             hasCompletedOnboarding: false,
+            usagePlan: null,
+            usageLimit: null,
+            usageRemaining: null,
+            usageUpdatedAt: null,
           });
           return;
         }
@@ -175,6 +214,10 @@ export async function getStoredData(): Promise<StoredData> {
             analyzedUrl: null,
             analyzedAt: null,
             hasCompletedOnboarding: false,
+            usagePlan: null,
+            usageLimit: null,
+            usageRemaining: null,
+            usageUpdatedAt: null,
           });
           return;
         }
@@ -221,6 +264,23 @@ export async function saveStoredData(data: StoredData): Promise<void> {
         userProfile: data.userProfile || null,
         isAuthenticated: data.isAuthenticated ?? null,
         jobHistory: data.jobHistory || [],
+        usagePlan:
+          typeof data.usagePlan === "string"
+            ? data.usagePlan.toLowerCase()
+            : null,
+        usageLimit:
+          typeof data.usageLimit === "number" && !Number.isNaN(data.usageLimit)
+            ? data.usageLimit
+            : null,
+        usageRemaining:
+          typeof data.usageRemaining === "number" &&
+          !Number.isNaN(data.usageRemaining)
+            ? data.usageRemaining
+            : null,
+        usageUpdatedAt:
+          typeof data.usageUpdatedAt === "number" && data.usageUpdatedAt >= 0
+            ? data.usageUpdatedAt
+            : null,
       };
 
       // Check storage size (approximate)

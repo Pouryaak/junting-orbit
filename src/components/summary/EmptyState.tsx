@@ -14,6 +14,8 @@ interface EmptyStateProps {
   isLoading: boolean;
   validationError: ValidationError | null;
   onDismissError: () => void;
+  isQuotaDepleted: boolean;
+  dailyLimit: number | null;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -21,6 +23,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   isLoading,
   validationError,
   onDismissError,
+  isQuotaDepleted,
+  dailyLimit,
 }) => {
   return (
     <div className="flex flex-col items-center justify-center py-6 px-6 text-center">
@@ -33,6 +37,17 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
             description={validationError.message}
             suggestion={validationError.suggestion}
             onClose={onDismissError}
+          />
+        </div>
+      )}
+
+      {isQuotaDepleted && (
+        <div className="w-full mb-6">
+          <Alert
+            variant="info"
+            title="All free boosts used for today 🎉"
+            description={`Thanks for putting the analyzer to work! You're on the free plan with ${(dailyLimit ?? 5)} daily runs. Fresh credits drop tomorrow at midnight.`}
+            suggestion="Premium (launching soon) unlocks unlimited deep dives—can't wait to share it with you!"
           />
         </div>
       )}
@@ -82,29 +97,40 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       </div>
 
       {/* CTA Button */}
-      <Button
-        onClick={onAnalyze}
-        disabled={isLoading}
-        size="lg"
-        className="w-full max-w-sm bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
-      >
-        {isLoading ? (
-          <>
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
-            Analyzing Job Description...
-          </>
-        ) : (
-          <>
-            <Zap className="h-5 w-5 mr-2" />
-            Analyze This Job Posting
-          </>
-        )}
-      </Button>
+      {isQuotaDepleted ? (
+        <div className="w-full max-w-md rounded-lg border border-dashed border-primary/40 bg-primary/5 px-5 py-4 text-primary">
+          <p className="font-semibold text-sm mb-1">Take a breather 😌</p>
+          <p className="text-sm leading-relaxed opacity-90">
+            Daily free analyses reset tomorrow. Premium (coming soon) will unlock unlimited runs—stay tuned!
+          </p>
+        </div>
+      ) : (
+        <Button
+          onClick={onAnalyze}
+          disabled={isLoading}
+          size="lg"
+          className="w-full max-w-sm bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
+              Analyzing Job Description...
+            </>
+          ) : (
+            <>
+              <Zap className="h-5 w-5 mr-2" />
+              Analyze This Job Posting
+            </>
+          )}
+        </Button>
+      )}
 
       {/* Helper Text */}
-      <p className="text-xs text-muted-foreground mt-4">
-        Make sure you're on a job posting page
-      </p>
+      {!isQuotaDepleted && (
+        <p className="text-xs text-muted-foreground mt-4">
+          Make sure you're on a job posting page
+        </p>
+      )}
     </div>
   );
 };
