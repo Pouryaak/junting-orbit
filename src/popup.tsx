@@ -62,7 +62,7 @@ function Popup() {
   // Show loading state while checking
   if (isChecking) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-background min-w-[500px] min-h-[600px]">
+      <div className="w-full h-full flex items-center justify-center bg-background min-w-[800px] min-h-[600px]">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -71,7 +71,7 @@ function Popup() {
   // Show onboarding for first-time users
   if (showOnboarding) {
     return (
-      <div className="w-full h-full flex flex-col bg-background min-w-[500px] min-h-[600px]">
+      <div className="w-full h-full flex flex-col bg-background min-w-[800px] min-h-[600px]">
         <ExtensionHeader />
         <div className="flex-1 overflow-y-auto">
           <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
@@ -83,7 +83,7 @@ function Popup() {
 
   // Show main UI with tabs
   return (
-    <div className="w-full h-full flex flex-col bg-background min-w-[500px]">
+    <div className="w-full h-full flex flex-col bg-background min-w-[800px]">
       {/* Header - Fixed at top */}
       <div className="flex-shrink-0">
         <ExtensionHeader />

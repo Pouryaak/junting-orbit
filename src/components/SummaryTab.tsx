@@ -1,13 +1,15 @@
 import { validateJobDescription, type ValidationError } from '@/lib/jobDescriptionValidator';
 import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
 import { cn } from '@/lib/utils';
+import { createHistoryEntry, addToHistory, type JobHistoryEntry } from '@/lib/jobHistory';
 import { analyzeJob as analyzeJobAPI, type FitAssessment as APIFitAssessment } from '@/services/apiService';
 import { extractJobDescription } from '@/services/jobAnalysisService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
-import { AlertCircle, BarChart3, CheckCircle2, FileText, RefreshCw, Sparkles, Target, TrendingUp, XCircle, Zap } from 'lucide-react';
+import { AlertCircle, BarChart3, CheckCircle2, FileText, RefreshCw, Sparkles, Target, TrendingUp, XCircle, Zap, History as HistoryIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Alert } from './ui/alert';
 import { Button } from './ui/button';
+import { JobHistoryModal } from './JobHistoryModal';
 
 interface FitAssessment {
   label: 'Strong Fit' | 'Medium Fit' | 'Weak Fit';
@@ -222,6 +224,8 @@ export const SummaryTab: React.FC = () => {
   const [storedUrl, setStoredUrl] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [validationError, setValidationError] = useState<ValidationError | null>(null);
+  const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Load stored data on mount
   useEffect(() => {
@@ -235,6 +239,11 @@ export const SummaryTab: React.FC = () => {
         
         if (stored.assessment && stored.analyzedUrl) {
           setAssessment(stored.assessment);
+        }
+        
+        // Load job history
+        if (stored.jobHistory && Array.isArray(stored.jobHistory)) {
+          setJobHistory(stored.jobHistory);
         }
       } catch (error) {
         const appError = handleError(error, 'LoadStoredData');
@@ -303,6 +312,22 @@ export const SummaryTab: React.FC = () => {
       // Set the assessment data
       setAssessment(localAssessment);
       
+      // Create history entry
+      const historyEntry = await createHistoryEntry({
+        url: jobDescription.url,
+        title: jobDescription.title,
+        company: jobDescription.company,
+        matchScore: localAssessment.matchScore,
+        label: localAssessment.label,
+        decisionHelper: localAssessment.decisionHelper,
+        greenFlags: localAssessment.greenFlags,
+        redFlags: localAssessment.redFlags,
+      });
+      
+      // Add to history (max 10 entries, deduplicated)
+      const updatedHistory = addToHistory(jobHistory, historyEntry);
+      setJobHistory(updatedHistory);
+      
       // Save to storage
       const stored = await getStoredData();
       await saveStoredData({
@@ -311,6 +336,7 @@ export const SummaryTab: React.FC = () => {
         coverLetter: analysisResult.cover_letter_text,
         analyzedUrl: jobDescription.url,
         analyzedAt: Date.now(),
+        jobHistory: updatedHistory,
       });
       
       setStoredUrl(jobDescription.url);
@@ -343,151 +369,210 @@ export const SummaryTab: React.FC = () => {
   // Show empty state if no assessment data
   if (!assessment) {
     return (
-      <EmptyState 
-        onAnalyze={handleAnalyze} 
-        isLoading={isLoading}
-        validationError={validationError}
-        onDismissError={() => setValidationError(null)}
-      />
+      <>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-accent" />
+            <span className="text-sm font-medium text-foreground">
+              Evaluated by our career expert AI
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHistoryModal(true)}
+            className="h-9"
+          >
+            <HistoryIcon className="h-4 w-4" />
+            {jobHistory.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-primary text-primary-foreground rounded-full">
+                {jobHistory.length}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        <EmptyState 
+          onAnalyze={handleAnalyze} 
+          isLoading={isLoading}
+          validationError={validationError}
+          onDismissError={() => setValidationError(null)}
+        />
+        
+        {/* History Modal */}
+        <JobHistoryModal
+          open={showHistoryModal}
+          onOpenChange={setShowHistoryModal}
+          history={jobHistory}
+        />
+      </>
     );
   }
 
   // Show assessment results with URL change banner if needed
   return (
-    <div className="space-y-6">
-      {/* Validation Error Alert */}
-      {validationError && (
-        <Alert
-          variant="warning"
-          title={validationError.userMessage}
-          description={validationError.message}
-          suggestion={validationError.suggestion}
-          onClose={() => setValidationError(null)}
-        />
-      )}
-      
-      {/* URL Change Banner - Show when user navigated to a new job */}
-      {urlChanged && (
-        <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <div className="font-semibold text-sm mb-1 text-foreground">
-              New Job Posting Detected
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              You're viewing a different job posting. Analyze this new position to get updated insights.
-            </p>
-            <Button
-              onClick={handleAnalyze}
-              disabled={isLoading}
-              size="sm"
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Analyze This Job
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* AI Evaluation Badge */}
-      <div className="flex items-center gap-2 justify-center p-3 bg-accent/10 rounded-lg border border-accent/20">
-        <Sparkles className="h-5 w-5 text-accent" />
-        <span className="text-sm font-medium text-foreground">
-          Evaluated by our career expert AI
-        </span>
-      </div>
-
-      {/* Decision Helper - Moved to top */}
-      <div className={cn("rounded-lg border-2 p-6", getDecisionColor(assessment.decisionHelper))}>
-        <div className="flex items-center gap-3 mb-3">
-          <TrendingUp className="h-6 w-6" style={{ color: 'inherit' }} />
-          <h3 className="text-xl font-semibold" style={{ color: 'inherit' }}>Recommendation</h3>
-        </div>
-        <p className="text-lg font-bold mb-2" style={{ color: 'inherit' }}>{assessment.decisionHelper}</p>
-        <p className="text-base mt-2" style={{ color: 'inherit', opacity: 0.9 }}>
-          {assessment.decisionHelper === 'Apply Immediately' && 
-            "Your profile strongly matches this role. Submit your application with confidence!"}
-          {assessment.decisionHelper === 'Tailor & Apply' && 
-            "Good match overall, but consider tailoring your resume to highlight missing skills."}
-          {assessment.decisionHelper === 'Skip for Now' && 
-            "This role may not be the best fit. Consider focusing on better-matched opportunities."}
-        </p>
-      </div>
-
-      {/* ATS Score Gauge */}
-      <div className="bg-card rounded-lg border p-6">
-        <h3 className="text-xl font-semibold mb-4 text-center">ATS Compatibility Score</h3>
-        <ATSGauge score={assessment.matchScore} />
-        <p className="text-center text-muted-foreground mt-4">
-          Your resume matches {assessment.matchScore}% of the job requirements
-        </p>
-      </div>
-
-      {/* Fit Assessment */}
-      <div className="bg-card rounded-lg border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Fit Assessment</h3>
-          <span className={cn("text-lg font-bold", getFitColor(assessment.label))}>
-            {assessment.label}
+    <>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-4 pb-3 border-b">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-accent" />
+          <span className="text-sm font-medium text-foreground">
+            Evaluated by our career expert AI
           </span>
         </div>
-        
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-muted-foreground">Match Score</span>
-            <span className="font-semibold text-lg">{assessment.matchScore}/100</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-primary h-3 rounded-full transition-all duration-500"
-              style={{ width: `${assessment.matchScore}%` }}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowHistoryModal(true)}
+          className="h-9"
+        >
+          <HistoryIcon className="h-4 w-4" />
+          {jobHistory.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-primary text-primary-foreground rounded-full">
+              {jobHistory.length}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Left Column - Main Analysis */}
+        <div className="space-y-4">
+          {/* Validation Error Alert */}
+          {validationError && (
+            <Alert
+              variant="warning"
+              title={validationError.userMessage}
+              description={validationError.message}
+              suggestion={validationError.suggestion}
+              onClose={() => setValidationError(null)}
             />
+          )}
+          
+          {/* URL Change Banner - Show when user navigated to a new job */}
+          {urlChanged && (
+            <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="font-semibold text-sm mb-1 text-foreground">
+                  New Job Posting Detected
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  You're viewing a different job posting. Analyze this new position to get updated insights.
+                </p>
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={isLoading}
+                  size="sm"
+                  className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Analyze This Job
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Decision Helper */}
+          <div className={cn("rounded-lg border-2 p-4", getDecisionColor(assessment.decisionHelper))}>
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingUp className="h-5 w-5" style={{ color: 'inherit' }} />
+              <h3 className="text-lg font-semibold" style={{ color: 'inherit' }}>Recommendation</h3>
+            </div>
+            <p className="text-base font-bold mb-2" style={{ color: 'inherit' }}>{assessment.decisionHelper}</p>
+            <p className="text-sm mt-2" style={{ color: 'inherit', opacity: 0.9 }}>
+              {assessment.decisionHelper === 'Apply Immediately' && 
+                "Your profile strongly matches this role. Submit your application with confidence!"}
+              {assessment.decisionHelper === 'Tailor & Apply' && 
+                "Good match overall, but consider tailoring your resume to highlight missing skills."}
+              {assessment.decisionHelper === 'Skip for Now' && 
+                "This role may not be the best fit. Consider focusing on better-matched opportunities."}
+            </p>
+          </div>
+
+          {/* ATS Score Gauge - Compact */}
+          <div className="bg-card rounded-lg border p-4">
+            <h3 className="text-lg font-semibold mb-3 text-center">ATS Score</h3>
+            <ATSGauge score={assessment.matchScore} />
           </div>
         </div>
 
-        {/* Green Flags */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <h4 className="font-semibold text-lg">Green Flags</h4>
-          </div>
-          <ul className="space-y-2 ml-7">
-            {assessment.greenFlags.map((flag, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-green-600 mt-1">✓</span>
-                <span className="text-foreground">{flag}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Right Column - Flags & Details */}
+        <div className="space-y-4">
+          {/* Fit Assessment Header */}
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Fit Assessment</h3>
+              <span className={cn("text-base font-bold", getFitColor(assessment.label))}>
+                {assessment.label}
+              </span>
+            </div>
+            
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Match Score</span>
+                <span className="font-semibold text-base">{assessment.matchScore}/100</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${assessment.matchScore}%` }}
+                />
+              </div>
+            </div>
 
-        {/* Red Flags */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <XCircle className="h-5 w-5 text-red-600" />
-            <h4 className="font-semibold text-lg">Red Flags</h4>
+            {/* Green Flags */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <h4 className="font-semibold text-sm">Green Flags</h4>
+              </div>
+              <ul className="space-y-1 ml-6">
+                {assessment.greenFlags.map((flag, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-green-600 text-xs mt-0.5">✓</span>
+                    <span className="text-sm text-foreground">{flag}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Red Flags */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <h4 className="font-semibold text-sm">Red Flags</h4>
+              </div>
+              <ul className="space-y-1 ml-6">
+                {assessment.redFlags.map((flag, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-red-600 text-xs mt-0.5">✗</span>
+                    <span className="text-sm text-foreground">{flag}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <ul className="space-y-2 ml-7">
-            {assessment.redFlags.map((flag, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-red-600 mt-1">✗</span>
-                <span className="text-foreground">{flag}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
-    </div>
+      
+      {/* History Modal */}
+      <JobHistoryModal
+        open={showHistoryModal}
+        onOpenChange={setShowHistoryModal}
+        history={jobHistory}
+      />
+    </>
   );
 };
 

@@ -241,94 +241,99 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Full Name */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Full Name
-        </label>
-        <input
-          type="text"
-          value={profile.full_name || ''}
-          onChange={(e) => handleInputChange('full_name', e.target.value || null)}
-          placeholder="Enter your full name"
-          className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        />
-      </div>
+      {/* 2-Column Layout for Form Fields */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-4">
+          {/* Full Name */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={profile.full_name || ''}
+              onChange={(e) => handleInputChange('full_name', e.target.value || null)}
+              placeholder="Enter your full name"
+              className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+          </div>
 
-      {/* Resume Text */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Resume Text
-        </label>
-        <textarea
-          value={profile.resume_text || ''}
-          onChange={(e) => handleInputChange('resume_text', e.target.value || null)}
-          placeholder="Paste your resume text here (at least 30 characters recommended)"
-          rows={8}
-          className="w-full px-4 py-2 rounded-lg border bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        />
-        <p className="text-xs text-muted-foreground">
-          Your resume is used to generate personalized job analysis and cover letters.
-        </p>
-      </div>
+          {/* Target Role */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
+              Target Role
+            </label>
+            <input
+              type="text"
+              value={profile.target_role || ''}
+              onChange={(e) => handleInputChange('target_role', e.target.value || null)}
+              placeholder="e.g., Senior Frontend Engineer"
+              className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+          </div>
 
-      {/* Preferred Tone */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />
-          Preferred Tone
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {(['neutral', 'warm', 'formal'] as const).map((tone) => (
-            <button
-              key={tone}
-              onClick={() => handleInputChange('preferred_tone', tone)}
-              className={cn(
-                'px-4 py-2 rounded-lg border text-sm font-medium transition-all',
-                profile.preferred_tone === tone
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-foreground border-border hover:bg-muted'
-              )}
-            >
-              {tone.charAt(0).toUpperCase() + tone.slice(1)}
-            </button>
-          ))}
+          {/* Location */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Location
+            </label>
+            <input
+              type="text"
+              value={profile.location || ''}
+              onChange={(e) => handleInputChange('location', e.target.value || null)}
+              placeholder="e.g., Copenhagen / Remote"
+              className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+          </div>
+
+          {/* Preferred Tone */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Preferred Tone
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['neutral', 'warm', 'formal'] as const).map((tone) => (
+                <button
+                  key={tone}
+                  onClick={() => handleInputChange('preferred_tone', tone)}
+                  className={cn(
+                    'px-3 py-2 rounded-lg border text-xs font-medium transition-all',
+                    profile.preferred_tone === tone
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-foreground border-border hover:bg-muted'
+                  )}
+                >
+                  {tone.charAt(0).toUpperCase() + tone.slice(1)}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Choose the tone for your cover letters.
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Choose the tone for your cover letters and communications.
-        </p>
-      </div>
 
-      {/* Target Role */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <Briefcase className="h-4 w-4" />
-          Target Role
-        </label>
-        <input
-          type="text"
-          value={profile.target_role || ''}
-          onChange={(e) => handleInputChange('target_role', e.target.value || null)}
-          placeholder="e.g., Senior Frontend Engineer"
-          className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        />
-      </div>
-
-      {/* Location */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <MapPin className="h-4 w-4" />
-          Location
-        </label>
-        <input
-          type="text"
-          value={profile.location || ''}
-          onChange={(e) => handleInputChange('location', e.target.value || null)}
-          placeholder="e.g., Copenhagen / Remote"
-          className="w-full px-4 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        />
+        {/* Right Column - Resume Text (spans full height) */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Resume Text
+          </label>
+          <textarea
+            value={profile.resume_text || ''}
+            onChange={(e) => handleInputChange('resume_text', e.target.value || null)}
+            placeholder="Paste your resume text here (at least 30 characters recommended)"
+            className="w-full h-[400px] px-4 py-2 rounded-lg border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          />
+          <p className="text-xs text-muted-foreground">
+            Your resume is used to generate personalized job analysis and cover letters.
+          </p>
+        </div>
       </div>
 
       {/* Info Box */}

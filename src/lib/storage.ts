@@ -27,6 +27,18 @@ export interface StoredData {
     cachedAt: number; // Timestamp when profile was cached
   } | null;
   isAuthenticated?: boolean | null;
+  jobHistory?: Array<{
+    id: string;
+    url: string;
+    title: string;
+    company: string;
+    matchScore: number;
+    label: "Strong Fit" | "Medium Fit" | "Weak Fit";
+    decisionHelper: "Apply Immediately" | "Tailor & Apply" | "Skip for Now";
+    topGreenFlags: string[];
+    topRedFlags: string[];
+    analyzedAt: number;
+  }>;
 }
 
 const STORAGE_KEY = "junting-orbit-data";
@@ -94,8 +106,9 @@ function validateStoredData(data: unknown): data is StoredData {
 
 /**
  * Sanitize string input to prevent XSS
+ * Exported for use in other modules that need string sanitization
  */
-function sanitizeString(input: string): string {
+export function sanitizeString(input: string): string {
   return input
     .replace(/[<>]/g, "") // Remove potential HTML tags
     .trim()
@@ -104,8 +117,9 @@ function sanitizeString(input: string): string {
 
 /**
  * Sanitize URL to prevent malicious URLs
+ * Exported for use in other modules that need URL sanitization
  */
-function sanitizeUrl(url: string): string | null {
+export function sanitizeUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
     // Only allow http/https protocols
@@ -206,6 +220,7 @@ export async function saveStoredData(data: StoredData): Promise<void> {
             : false,
         userProfile: data.userProfile || null,
         isAuthenticated: data.isAuthenticated ?? null,
+        jobHistory: data.jobHistory || [],
       };
 
       // Check storage size (approximate)

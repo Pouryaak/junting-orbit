@@ -41,13 +41,14 @@ const VALIDATION_CONFIG = {
  * Add more patterns as needed for different job sites
  */
 const JOB_URL_PATTERNS = [
-  // LinkedIn - /jobs/collections or /jobs/view
+  // LinkedIn - /jobs/collections, /jobs/view, or /jobs/search
   {
     domain: "linkedin.com",
     pattern: /\/jobs\/collections\//i,
     name: "LinkedIn",
   },
   { domain: "linkedin.com", pattern: /\/jobs\/view\//i, name: "LinkedIn" },
+  { domain: "linkedin.com", pattern: /\/jobs\/search\//i, name: "LinkedIn" },
 
   // Indeed - /jobs with query params or /viewjob
   { domain: "indeed.com", pattern: /\/jobs\?.*vjk=/i, name: "Indeed" },
