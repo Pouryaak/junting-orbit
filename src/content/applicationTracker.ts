@@ -65,13 +65,17 @@ function findButtonContainer(): HTMLElement | null {
 
   if (site === "indeed") {
     // Look for the specific view job button container to insert after it
-    const viewJobContainer = document.getElementById("viewJobButtonLinkContainer");
+    const viewJobContainer = document.getElementById(
+      "viewJobButtonLinkContainer"
+    );
     if (viewJobContainer) {
       return viewJobContainer.parentElement;
     }
-    
+
     // Fallback: Look for the main job actions container
-    const mainContainer = document.getElementById("jobsearch-ViewJobButtons-container");
+    const mainContainer = document.getElementById(
+      "jobsearch-ViewJobButtons-container"
+    );
     if (mainContainer) {
       return mainContainer;
     }
