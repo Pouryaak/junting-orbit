@@ -1,3 +1,4 @@
+import { validateJobDescription, type ValidationError } from '@/lib/jobDescriptionValidator';
 import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import { analyzeJob as analyzeJobAPI, type FitAssessment as APIFitAssessment } from '@/services/apiService';
@@ -5,6 +6,7 @@ import { extractJobDescription } from '@/services/jobAnalysisService';
 import { handleError, showErrorToUser } from '@/utils/errorHandler';
 import { AlertCircle, BarChart3, CheckCircle2, FileText, RefreshCw, Sparkles, Target, TrendingUp, XCircle, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { Alert } from './ui/alert';
 import { Button } from './ui/button';
 
 interface FitAssessment {
@@ -29,9 +31,27 @@ function convertAPIAssessment(apiAssessment: APIFitAssessment): FitAssessment {
 
 
 // Empty State Component
-const EmptyState: React.FC<{ onAnalyze: () => void; isLoading: boolean }> = ({ onAnalyze, isLoading }) => {
+const EmptyState: React.FC<{ 
+  onAnalyze: () => void; 
+  isLoading: boolean; 
+  validationError: ValidationError | null;
+  onDismissError: () => void;
+}> = ({ onAnalyze, isLoading, validationError, onDismissError }) => {
   return (
     <div className="flex flex-col items-center justify-center py-6 px-6 text-center">
+      {/* Show validation error if present */}
+      {validationError && (
+        <div className="w-full mb-6">
+          <Alert
+            variant="warning"
+            title={validationError.userMessage}
+            description={validationError.message}
+            suggestion={validationError.suggestion}
+            onClose={onDismissError}
+          />
+        </div>
+      )}
+      
       {/* Icon/Illustration */}
       <div className="mb-6 relative">
         <div className="w-24 h-24 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center">
@@ -201,6 +221,7 @@ export const SummaryTab: React.FC = () => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [storedUrl, setStoredUrl] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [validationError, setValidationError] = useState<ValidationError | null>(null);
 
   // Load stored data on mount
   useEffect(() => {
@@ -244,6 +265,7 @@ export const SummaryTab: React.FC = () => {
 
   const handleAnalyze = async () => {
     setIsLoading(true);
+    setValidationError(null); // Clear previous validation errors
     
     try {
       // Get current tab
@@ -256,7 +278,20 @@ export const SummaryTab: React.FC = () => {
       // Extract job description using service
       const jobDescription = await extractJobDescription(tab.id);
       
-      // Analyze job using API
+      // Validate job description before sending to backend
+      const validationResult = validateJobDescription(
+        jobDescription.text,
+        jobDescription.url // Pass URL for validation
+      );
+      
+      if (!validationResult.isValid && validationResult.error) {
+        // Show validation error to user
+        setValidationError(validationResult.error);
+        setIsLoading(false);
+        return; // Stop here, don't send request to backend
+      }
+      
+      // Analyze job using API (only if validation passed)
       const analysisResult = await analyzeJobAPI(
         jobDescription.text
         // Optional: add toneOverride and targetRoleOverride from profile if needed
@@ -307,12 +342,30 @@ export const SummaryTab: React.FC = () => {
 
   // Show empty state if no assessment data
   if (!assessment) {
-    return <EmptyState onAnalyze={handleAnalyze} isLoading={isLoading} />;
+    return (
+      <EmptyState 
+        onAnalyze={handleAnalyze} 
+        isLoading={isLoading}
+        validationError={validationError}
+        onDismissError={() => setValidationError(null)}
+      />
+    );
   }
 
   // Show assessment results with URL change banner if needed
   return (
     <div className="space-y-6">
+      {/* Validation Error Alert */}
+      {validationError && (
+        <Alert
+          variant="warning"
+          title={validationError.userMessage}
+          description={validationError.message}
+          suggestion={validationError.suggestion}
+          onClose={() => setValidationError(null)}
+        />
+      )}
+      
       {/* URL Change Banner - Show when user navigated to a new job */}
       {urlChanged && (
         <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 flex items-start gap-3">
