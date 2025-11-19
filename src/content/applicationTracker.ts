@@ -64,13 +64,41 @@ function findButtonContainer(): HTMLElement | null {
   }
 
   if (site === "indeed") {
-    // Look for the job actions container
-    const container = document.getElementById(
-      "jobsearch-ViewJobButtons-container"
-    );
-    if (container) {
-      return container;
+    // Look for the specific view job button container to insert after it
+    const viewJobContainer = document.getElementById("viewJobButtonLinkContainer");
+    if (viewJobContainer) {
+      return viewJobContainer.parentElement;
     }
+    
+    // Fallback: Look for the main job actions container
+    const mainContainer = document.getElementById("jobsearch-ViewJobButtons-container");
+    if (mainContainer) {
+      return mainContainer;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find the reference element to insert button after (Indeed only)
+ */
+function findReferenceElement(): HTMLElement | null {
+  const site = detectJobSite();
+
+  if (site === "indeed") {
+    // Try to find viewJobButtonLinkContainer first, then saveJobButtonContainer as fallback
+    const viewJobContainer = document.getElementById(
+      "viewJobButtonLinkContainer"
+    );
+    const saveJobContainer = document.getElementById("saveJobButtonContainer");
+
+    console.log("[Junting Orbit] Indeed reference elements:", {
+      viewJobContainer: !!viewJobContainer,
+      saveJobContainer: !!saveJobContainer,
+    });
+
+    return viewJobContainer || saveJobContainer;
   }
 
   return null;
@@ -171,7 +199,14 @@ function updateButtonState(isApplied: boolean) {
     if (!isApplied) {
       newButton.onclick = handleMarkAsApplied;
     }
-    container.appendChild(newButton);
+
+    // For Indeed, insert after the reference element
+    const referenceElement = findReferenceElement();
+    if (referenceElement && container.contains(referenceElement)) {
+      referenceElement.after(newButton);
+    } else {
+      container.appendChild(newButton);
+    }
   }
 }
 
@@ -262,6 +297,12 @@ async function initializeButton() {
     return;
   }
 
+  // For Indeed, wait a bit for the page to fully load
+  const site = detectJobSite();
+  if (site === "indeed") {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
   // Find container
   const container = findButtonContainer();
   if (!container) {
@@ -280,7 +321,14 @@ async function initializeButton() {
     if (!isApplied) {
       button.onclick = handleMarkAsApplied;
     }
-    container.appendChild(button);
+
+    // For Indeed, insert after the reference element
+    const referenceElement = findReferenceElement();
+    if (referenceElement && container.contains(referenceElement)) {
+      referenceElement.after(button);
+    } else {
+      container.appendChild(button);
+    }
   } catch (error) {
     console.error("Failed to initialize application tracker:", error);
   }
