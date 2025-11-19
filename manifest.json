@@ -27,12 +27,7 @@
       "all_frames": false
     },
     {
-      "matches": [
-        "https://www.linkedin.com/*",
-        "https://linkedin.com/*",
-        "https://*.indeed.com/*",
-        "https://indeed.com/*"
-      ],
+      "matches": ["<all_urls>"],
       "js": ["applicationTracker.js"],
       "run_at": "document_idle",
       "all_frames": false

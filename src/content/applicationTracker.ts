@@ -12,6 +12,9 @@ import { markJobAsApplied, isJobApplied } from "@/lib/jobHistory";
 // Button ID to prevent duplicate injection
 const BUTTON_ID = "junting-orbit-applied-btn";
 
+// Track reference element for generic job boards
+let fallbackReferenceElement: HTMLElement | null = null;
+
 /**
  * Detect current job site
  */
@@ -30,12 +33,15 @@ function detectJobSite(): "linkedin" | "indeed" | "unknown" {
 function isJobPostingPage(): boolean {
   const site = detectJobSite();
   const pathname = window.location.pathname;
+  const href = window.location.href;
 
   if (site === "linkedin") {
+    // Check for various LinkedIn job page patterns
     return (
       pathname.includes("/jobs/view/") ||
       pathname.includes("/jobs/collections/") ||
-      pathname.includes("/jobs/search/")
+      pathname.includes("/jobs/search/") ||
+      href.includes("linkedin.com/jobs/view/")
     );
   }
 
@@ -46,20 +52,53 @@ function isJobPostingPage(): boolean {
     );
   }
 
-  return false;
+  // Universal fallback: Check if there's an "Apply" button on the page
+  // This helps catch job pages on any site
+  const allButtons = Array.from(
+    document.querySelectorAll("button, a[role='button'], a[href*='apply'], a")
+  );
+  const hasApplyButton = allButtons.some((btn) => {
+    const text = btn.textContent?.toLowerCase() || "";
+    const ariaLabel = btn.getAttribute("aria-label")?.toLowerCase() || "";
+    const href = btn.getAttribute("href")?.toLowerCase() || "";
+    return (
+      text.includes("apply") ||
+      ariaLabel.includes("apply") ||
+      href.includes("apply")
+    );
+  });
+
+  return hasApplyButton;
 }
 
 /**
  * Find container element where button should be injected
  */
 function findButtonContainer(): HTMLElement | null {
+  fallbackReferenceElement = null;
   const site = detectJobSite();
 
   if (site === "linkedin") {
-    // Look for the save button container
-    const saveButton = document.querySelector(".jobs-save-button");
-    if (saveButton) {
+    // Method 1: Look for the save button and get its parent container (the flex container)
+    const saveButton = document.querySelector<HTMLElement>(".jobs-save-button");
+    if (saveButton && saveButton.parentElement) {
+      // The parent should be the display-flex div that contains both Apply and Save buttons
       return saveButton.parentElement;
+    }
+
+    // Method 2: Look for apply button container
+    const applyButton =
+      document.querySelector<HTMLElement>(".jobs-apply-button");
+    if (applyButton && applyButton.closest(".display-flex")) {
+      return applyButton.closest<HTMLElement>(".display-flex");
+    }
+
+    // Method 3: Direct selector for the flex container
+    const flexContainer = document.querySelector<HTMLElement>(
+      ".mt4 > .display-flex"
+    );
+    if (flexContainer) {
+      return flexContainer;
     }
   }
 
@@ -79,6 +118,29 @@ function findButtonContainer(): HTMLElement | null {
     if (mainContainer) {
       return mainContainer;
     }
+  }
+
+  // Universal fallback: Find any button with "apply" text (case-insensitive)
+  const allButtons = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      "button, a[role='button'], a[href*='apply'], a"
+    )
+  );
+  const applyButton = allButtons.find((btn) => {
+    const text = btn.textContent?.toLowerCase() || "";
+    const ariaLabel = btn.getAttribute("aria-label")?.toLowerCase() || "";
+    const href = btn.getAttribute("href")?.toLowerCase() || "";
+    return (
+      text.includes("apply") ||
+      ariaLabel.includes("apply") ||
+      href.includes("apply")
+    );
+  });
+
+  if (applyButton) {
+    fallbackReferenceElement = applyButton;
+    // Return the parent container if it exists
+    return applyButton.parentElement ?? applyButton;
   }
 
   return null;
@@ -103,6 +165,10 @@ function findReferenceElement(): HTMLElement | null {
     });
 
     return viewJobContainer || saveJobContainer;
+  }
+
+  if (fallbackReferenceElement) {
+    return fallbackReferenceElement;
   }
 
   return null;
@@ -291,28 +357,46 @@ function showErrorMessage() {
  * Initialize button injection
  */
 async function initializeButton() {
+  console.log("[Junting Orbit] initializeButton called");
+
   // Check if we're on a job posting page
-  if (!isJobPostingPage()) {
+  const isJobPage = isJobPostingPage();
+  console.log("[Junting Orbit] Is job page:", isJobPage);
+
+  if (!isJobPage) {
     return;
   }
 
   // Check if button already exists
   if (document.getElementById(BUTTON_ID)) {
+    console.log("[Junting Orbit] Button already exists");
     return;
   }
 
-  // For Indeed, wait a bit for the page to fully load
-  const site = detectJobSite();
-  if (site === "indeed") {
+  // Wait a bit for the page to fully load
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Find container with multiple retries
+  let container = findButtonContainer();
+  let retries = 0;
+
+  while (!container && retries < 3) {
     await new Promise((resolve) => setTimeout(resolve, 500));
+    container = findButtonContainer();
+    retries++;
   }
 
-  // Find container
-  const container = findButtonContainer();
   if (!container) {
     return;
   }
 
+  return await injectButton(container);
+}
+
+/**
+ * Helper to inject button into container
+ */
+async function injectButton(container: HTMLElement) {
   try {
     // Check if job has been applied to
     const url = window.location.href;
@@ -326,10 +410,9 @@ async function initializeButton() {
       button.onclick = handleMarkAsApplied;
     }
 
-    // For Indeed, insert after the reference element
     const referenceElement = findReferenceElement();
     if (referenceElement && container.contains(referenceElement)) {
-      referenceElement.after(button);
+      referenceElement.insertAdjacentElement("afterend", button);
     } else {
       container.appendChild(button);
     }
@@ -368,12 +451,16 @@ function observePageChanges() {
 }
 
 // Initialize when DOM is ready
+console.log("[Junting Orbit] Content script loaded on:", window.location.href);
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
+    console.log("[Junting Orbit] DOM loaded, checking for job page");
     setTimeout(initializeButton, 1000);
     observePageChanges();
   });
 } else {
+  console.log("[Junting Orbit] DOM already loaded, checking for job page");
   setTimeout(initializeButton, 1000);
   observePageChanges();
 }
