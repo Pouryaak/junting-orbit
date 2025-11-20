@@ -404,40 +404,67 @@ function showErrorMessage() {
   setTimeout(() => message.remove(), 2000);
 }
 
+// Track initialization state to prevent race conditions
+let isInitializing = false;
+let navigationTimeout: NodeJS.Timeout | null = null;
+
 /**
  * Initialize button injection
  */
 async function initializeButton() {
-  // Check if we're on a job posting page
-  const isJobPage = isJobPostingPage();
-
-  if (!isJobPage) {
+  // Prevent concurrent initializations
+  if (isInitializing) {
     return;
   }
 
-  // Check if button already exists
+  // Check if button already exists (fast check)
   if (document.getElementById(BUTTON_ID)) {
     return;
   }
 
-  // Wait a bit for the page to fully load
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  isInitializing = true;
 
-  // Find container with multiple retries
-  let container = findButtonContainer();
-  let retries = 0;
+  try {
+    // Check if we're on a job posting page
+    const isJobPage = isJobPostingPage();
 
-  while (!container && retries < 3) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    container = findButtonContainer();
-    retries++;
+    if (!isJobPage) {
+      return;
+    }
+
+    // Fast polling for container (max 2 seconds)
+    // We check every 100ms to be responsive
+    let container: HTMLElement | null = null;
+    let attempts = 0;
+    const maxAttempts = 20; // 20 * 100ms = 2 seconds
+
+    while (!container && attempts < maxAttempts) {
+      // Double-check if button was injected by another process
+      if (document.getElementById(BUTTON_ID)) {
+        return;
+      }
+
+      container = findButtonContainer();
+      
+      if (!container) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        attempts++;
+      }
+    }
+
+    // Final check before injection
+    if (document.getElementById(BUTTON_ID)) {
+      return;
+    }
+
+    if (!container) {
+      return;
+    }
+
+    await injectButton(container);
+  } finally {
+    isInitializing = false;
   }
-
-  if (!container) {
-    return;
-  }
-
-  return await injectButton(container);
 }
 
 /**
@@ -483,8 +510,14 @@ function observePageChanges() {
         oldButton.remove();
       }
 
-      // Reinitialize after navigation
-      setTimeout(initializeButton, 1000);
+      // Clear any pending initialization
+      if (navigationTimeout) {
+        clearTimeout(navigationTimeout);
+      }
+
+      // Reinitialize after navigation with short debounce
+      // 200ms is enough to let the framework start rendering but fast enough to feel instant
+      navigationTimeout = setTimeout(initializeButton, 200);
     }
   });
 
@@ -497,11 +530,13 @@ function observePageChanges() {
 // Initialize when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(initializeButton, 1000);
+    // Initial load can be immediate or slightly delayed
+    setTimeout(initializeButton, 100);
     observePageChanges();
   });
 } else {
-  setTimeout(initializeButton, 1000);
+  // If already loaded, start immediately
+  initializeButton();
   observePageChanges();
 }
 
