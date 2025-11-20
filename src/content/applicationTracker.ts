@@ -7,7 +7,7 @@
  */
 
 import { getStoredData, saveStoredData } from "@/lib/storage";
-import { markJobAsApplied, isJobApplied } from "@/lib/jobHistory";
+import { markJobAsApplied } from "@/lib/jobHistory";
 
 // Button ID to prevent duplicate injection
 const BUTTON_ID = "junting-orbit-applied-btn";
@@ -17,16 +17,117 @@ let fallbackReferenceElement: HTMLElement | null = null;
 
 type JobSite = "linkedin" | "indeed" | "thehub" | "seek" | "unknown";
 
+interface SiteConfig {
+  hostnameIncludes: string[];
+  isJobPage: (pathname: string, href: string) => boolean;
+  getContainer: () => HTMLElement | null;
+  getReference?: () => HTMLElement | null;
+  styleButton?: (button: HTMLButtonElement) => void;
+  placeButton?: (button: HTMLButtonElement, container: HTMLElement, reference: HTMLElement | null) => void;
+}
+
+const SITE_CONFIGS: Record<JobSite, SiteConfig> = {
+  linkedin: {
+    hostnameIncludes: ["linkedin.com"],
+    isJobPage: (pathname, href) =>
+      pathname.includes("/jobs/view/") ||
+      pathname.includes("/jobs/collections/") ||
+      pathname.includes("/jobs/search/") ||
+      href.includes("linkedin.com/jobs/view/"),
+    getContainer: () => {
+      // Method 1: Look for the save button and get its parent container (the flex container)
+      const saveButton = document.querySelector<HTMLElement>(".jobs-save-button");
+      if (saveButton && saveButton.parentElement) {
+        return saveButton.parentElement;
+      }
+
+      // Method 2: Look for apply button container
+      const applyButton = document.querySelector<HTMLElement>(".jobs-apply-button");
+      if (applyButton && applyButton.closest(".display-flex")) {
+        return applyButton.closest<HTMLElement>(".display-flex");
+      }
+
+      // Method 3: Direct selector for the flex container
+      const flexContainer = document.querySelector<HTMLElement>(".mt4 > .display-flex");
+      if (flexContainer) {
+        return flexContainer;
+      }
+      return null;
+    }
+  },
+  indeed: {
+    hostnameIncludes: ["indeed.com"],
+    isJobPage: (pathname) =>
+      pathname.includes("/viewjob") ||
+      (pathname.includes("/jobs") && window.location.search.includes("vjk=")),
+    getContainer: () => {
+      // Look for the specific view job button container to insert after it
+      const viewJobContainer = document.getElementById("viewJobButtonLinkContainer");
+      if (viewJobContainer) {
+        return viewJobContainer.parentElement;
+      }
+
+      // Fallback: Look for the main job actions container
+      const mainContainer = document.getElementById("jobsearch-ViewJobButtons-container");
+      if (mainContainer) {
+        return mainContainer;
+      }
+      return null;
+    },
+    getReference: () => {
+      const viewJobContainer = document.getElementById("viewJobButtonLinkContainer");
+      const saveJobContainer = document.getElementById("saveJobButtonContainer");
+      return viewJobContainer || saveJobContainer;
+    }
+  },
+  thehub: {
+    hostnameIncludes: ["thehub.io"],
+    isJobPage: (pathname) => pathname.startsWith("/jobs/"),
+    getContainer: () => {
+      const jobBody = document.querySelector<HTMLElement>(".view-job-details__body");
+      if (jobBody) {
+        fallbackReferenceElement = jobBody;
+        return jobBody.parentElement ?? jobBody;
+      }
+      return null;
+    },
+    getReference: () => document.querySelector<HTMLElement>(".view-job-details__body"),
+    styleButton: (button) => {
+      button.style.marginLeft = "0";
+      button.style.marginBottom = "16px";
+    },
+    placeButton: (button, container, reference) => {
+      if (reference && container.contains(reference)) {
+        reference.insertAdjacentElement("beforebegin", button);
+      } else {
+        container.insertBefore(button, container.firstChild);
+      }
+    }
+  },
+  seek: {
+    hostnameIncludes: ["seek.com", "seek.co"],
+    isJobPage: (pathname) => pathname.startsWith("/job/") || pathname.startsWith("/jobs"),
+    getContainer: () => null // Fallback to universal
+  },
+  unknown: {
+    hostnameIncludes: [],
+    isJobPage: () => false,
+    getContainer: () => null
+  }
+};
+
 /**
  * Detect current job site
  */
 function detectJobSite(): JobSite {
   const hostname = window.location.hostname.toLowerCase();
-
-  if (hostname.includes("linkedin.com")) return "linkedin";
-  if (hostname.includes("indeed.com")) return "indeed";
-  if (hostname.includes("thehub.io")) return "thehub";
-  if (hostname.includes("seek.com") || hostname.includes("seek.co")) return "seek";
+  
+  for (const [site, config] of Object.entries(SITE_CONFIGS)) {
+    if (site === "unknown") continue;
+    if (config.hostnameIncludes.some(h => hostname.includes(h))) {
+      return site as JobSite;
+    }
+  }
 
   return "unknown";
 }
@@ -35,41 +136,22 @@ function detectJobSite(): JobSite {
  * Check if current page is a job posting
  */
 function isJobPostingPage(): boolean {
-  const site = detectJobSite();
+  const site = getJobSite();
   const pathname = window.location.pathname;
   const href = window.location.href;
 
-  if (site === "linkedin") {
-    // Check for various LinkedIn job page patterns
-    return (
-      pathname.includes("/jobs/view/") ||
-      pathname.includes("/jobs/collections/") ||
-      pathname.includes("/jobs/search/") ||
-      href.includes("linkedin.com/jobs/view/")
-    );
+  const config = SITE_CONFIGS[site];
+  if (config && site !== "unknown") {
+    if (config.isJobPage(pathname, href)) {
+      return true;
+    }
   }
 
-  if (site === "indeed") {
-    return (
-      pathname.includes("/viewjob") ||
-      (pathname.includes("/jobs") && window.location.search.includes("vjk="))
-    );
-  }
-
-  if (site === "thehub") {
-    return pathname.startsWith("/jobs/");
-  }
-
-  if (site === "seek") {
-    return pathname.startsWith("/job/") || pathname.startsWith("/jobs");
-  }
-
-  // Universal fallback: Check if there's an "Apply" button on the page
-  // This helps catch job pages on any site
+  // Universal fallback
   const allButtons = Array.from(
     document.querySelectorAll("button, a[role='button'], a[href*='apply'], a")
   );
-  const hasApplyButton = allButtons.some((btn) => {
+  return allButtons.some((btn) => {
     const text = btn.textContent?.toLowerCase() || "";
     const ariaLabel = btn.getAttribute("aria-label")?.toLowerCase() || "";
     const href = btn.getAttribute("href")?.toLowerCase() || "";
@@ -79,8 +161,6 @@ function isJobPostingPage(): boolean {
       href.includes("apply")
     );
   });
-
-  return hasApplyButton;
 }
 
 /**
@@ -88,66 +168,15 @@ function isJobPostingPage(): boolean {
  */
 function findButtonContainer(): HTMLElement | null {
   fallbackReferenceElement = null;
-  const site = detectJobSite();
+  const site = getJobSite();
+  const config = SITE_CONFIGS[site];
 
-  if (site === "linkedin") {
-    // Method 1: Look for the save button and get its parent container (the flex container)
-    const saveButton = document.querySelector<HTMLElement>(".jobs-save-button");
-    if (saveButton && saveButton.parentElement) {
-      // The parent should be the display-flex div that contains both Apply and Save buttons
-      return saveButton.parentElement;
-    }
-
-    // Method 2: Look for apply button container
-    const applyButton =
-      document.querySelector<HTMLElement>(".jobs-apply-button");
-    if (applyButton && applyButton.closest(".display-flex")) {
-      return applyButton.closest<HTMLElement>(".display-flex");
-    }
-
-    // Method 3: Direct selector for the flex container
-    const flexContainer = document.querySelector<HTMLElement>(
-      ".mt4 > .display-flex"
-    );
-    if (flexContainer) {
-      return flexContainer;
-    }
+  if (config && site !== "unknown") {
+    const container = config.getContainer();
+    if (container) return container;
   }
 
-  if (site === "indeed") {
-    // Look for the specific view job button container to insert after it
-    const viewJobContainer = document.getElementById(
-      "viewJobButtonLinkContainer"
-    );
-    if (viewJobContainer) {
-      return viewJobContainer.parentElement;
-    }
-
-    // Fallback: Look for the main job actions container
-    const mainContainer = document.getElementById(
-      "jobsearch-ViewJobButtons-container"
-    );
-    if (mainContainer) {
-      return mainContainer;
-    }
-  }
-
-  if (site === "thehub") {
-    const jobBody = document.querySelector<HTMLElement>(
-      ".view-job-details__body"
-    );
-    if (jobBody) {
-      fallbackReferenceElement = jobBody;
-      return jobBody.parentElement ?? jobBody;
-    }
-  }
-
-  if (site === "seek") {
-    // Seek specific container logic could go here, but fallback works well
-    // We can add specific selectors if needed in the future
-  }
-
-  // Universal fallback: Find any button with "apply" text (case-insensitive)
+  // Universal fallback
   const allButtons = Array.from(
     document.querySelectorAll<HTMLElement>(
       "button, a[role='button'], a[href*='apply'], a"
@@ -166,7 +195,6 @@ function findButtonContainer(): HTMLElement | null {
 
   if (applyButton) {
     fallbackReferenceElement = applyButton;
-    // Return the parent container if it exists
     return applyButton.parentElement ?? applyButton;
   }
 
@@ -177,25 +205,12 @@ function findButtonContainer(): HTMLElement | null {
  * Find the reference element used for site-specific placement
  */
 function findReferenceElement(): HTMLElement | null {
-  const site = detectJobSite();
+  const site = getJobSite();
+  const config = SITE_CONFIGS[site];
 
-  if (site === "indeed") {
-    // Try to find viewJobButtonLinkContainer first, then saveJobButtonContainer as fallback
-    const viewJobContainer = document.getElementById(
-      "viewJobButtonLinkContainer"
-    );
-    const saveJobContainer = document.getElementById("saveJobButtonContainer");
-
-    return viewJobContainer || saveJobContainer;
-  }
-
-  if (site === "thehub") {
-    const jobBody = document.querySelector<HTMLElement>(
-      ".view-job-details__body"
-    );
-    if (jobBody) {
-      return jobBody;
-    }
+  if (config && config.getReference) {
+    const ref = config.getReference();
+    if (ref) return ref;
   }
 
   if (fallbackReferenceElement) {
@@ -250,7 +265,20 @@ function createAppliedButton(isApplied: boolean): HTMLButtonElement {
 
   // Button content with logo - same logo for both states
   const text = isApplied ? "Applied" : "Mark as Applied";
-  button.innerHTML = `<img src="${logoUrl}" alt="JO" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;"> <span>${text}</span>`;
+  
+  const img = document.createElement("img");
+  img.src = logoUrl;
+  img.alt = "JO";
+  img.style.width = "16px";
+  img.style.height = "16px";
+  img.style.borderRadius = "2px";
+  img.style.objectFit = "contain";
+  
+  const span = document.createElement("span");
+  span.textContent = text;
+  
+  button.appendChild(img);
+  button.appendChild(span);
 
   return button;
 }
@@ -259,9 +287,9 @@ function applySiteSpecificButtonStyles(
   button: HTMLButtonElement,
   site: JobSite
 ) {
-  if (site === "thehub") {
-    button.style.marginLeft = "0";
-    button.style.marginBottom = "16px";
+  const config = SITE_CONFIGS[site];
+  if (config && config.styleButton) {
+    config.styleButton(button);
   }
 }
 
@@ -270,22 +298,20 @@ function placeButton(
   container: HTMLElement,
   site: JobSite
 ) {
+  const config = SITE_CONFIGS[site];
   const referenceElement = findReferenceElement();
 
-  if (referenceElement && container.contains(referenceElement)) {
-    if (site === "thehub") {
-      referenceElement.insertAdjacentElement("beforebegin", button);
-    } else {
-      referenceElement.insertAdjacentElement("afterend", button);
-    }
+  if (config && config.placeButton) {
+    config.placeButton(button, container, referenceElement);
     return;
   }
 
-  if (site === "thehub") {
-    container.insertBefore(button, container.firstChild);
-  } else {
-    container.appendChild(button);
+  if (referenceElement && container.contains(referenceElement)) {
+    referenceElement.insertAdjacentElement("afterend", button);
+    return;
   }
+
+  container.appendChild(button);
 }
 
 /**
@@ -330,7 +356,7 @@ function updateButtonState(isApplied: boolean) {
 
   const container = findButtonContainer();
   if (container) {
-    const site = detectJobSite();
+    const site = getJobSite();
     const newButton = createAppliedButton(isApplied);
     if (!isApplied) {
       newButton.onclick = handleMarkAsApplied;
@@ -359,17 +385,31 @@ function showSuccessMessage() {
     box-shadow: 0 4px 12px rgba(124, 93, 255, 0.3);
     z-index: 10000;
     animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   `;
 
-  // Add checkmark SVG icon
-  message.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-      <span>Marked as applied!</span>
-    </div>
-  `;
+  // Create SVG icon
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "20");
+  svg.setAttribute("height", "20");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", "20 6 9 17 4 12");
+  svg.appendChild(polyline);
+
+  const span = document.createElement("span");
+  span.textContent = "Marked as applied!";
+
+  message.appendChild(svg);
+  message.appendChild(span);
 
   document.body.appendChild(message);
 
@@ -396,18 +436,42 @@ function showErrorMessage() {
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
     z-index: 10000;
-    `;
-
-  // Add X icon
-  message.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-      <span>Failed to mark as applied</span>
-    </div>
+    display: flex;
+    align-items: center;
+    gap: 8px;
   `;
+
+  // Create SVG icon
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "20");
+  svg.setAttribute("height", "20");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line1.setAttribute("x1", "18");
+  line1.setAttribute("y1", "6");
+  line1.setAttribute("x2", "6");
+  line1.setAttribute("y2", "18");
+  
+  const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line2.setAttribute("x1", "6");
+  line2.setAttribute("y1", "6");
+  line2.setAttribute("x2", "18");
+  line2.setAttribute("y2", "18");
+
+  svg.appendChild(line1);
+  svg.appendChild(line2);
+
+  const span = document.createElement("span");
+  span.textContent = "Failed to mark as applied";
+
+  message.appendChild(svg);
+  message.appendChild(span);
 
   document.body.appendChild(message);
 
@@ -415,11 +479,26 @@ function showErrorMessage() {
 }
 
 // Track initialization state to prevent race conditions
+/**
+ * State Management
+ */
+let currentSite: JobSite | null = null;
 let isInitializing = false;
 let navigationTimeout: NodeJS.Timeout | null = null;
+let observer: MutationObserver | null = null;
 
 /**
- * Initialize button injection
+ * Get the current job site, cached for performance
+ */
+function getJobSite(): JobSite {
+  if (!currentSite) {
+    currentSite = detectJobSite();
+  }
+  return currentSite;
+}
+
+/**
+ * Initialize the button injection logic
  */
 async function initializeButton() {
   // Prevent concurrent initializations
@@ -442,11 +521,11 @@ async function initializeButton() {
       return;
     }
 
-    // Fast polling for container (max 10 seconds for Seek)
-    // We check every 100ms to be responsive
+    // Fast polling for container
+    // We check every 100ms to be responsive, up to 10 seconds
     let container: HTMLElement | null = null;
     let attempts = 0;
-    const maxAttempts = 100; // 100 * 100ms = 10 seconds
+    const maxAttempts = 100; 
 
     while (!container && attempts < maxAttempts) {
       // Double-check if button was injected by another process
@@ -478,43 +557,52 @@ async function initializeButton() {
 }
 
 /**
- * Helper to inject button into container
+ * Inject the button into the container
  */
 async function injectButton(container: HTMLElement) {
   try {
-    // Check if job has been applied to
     const url = window.location.href;
     const stored = await getStoredData();
     const history = stored.jobHistory || [];
-    const isApplied = await isJobApplied(history, url);
+    
+    // Check if already applied
+    const isApplied = history.some((job) => job.url === url);
 
-    // Create and inject button
+    // Create and place button
+    const site = getJobSite();
     const button = createAppliedButton(isApplied);
+    
     if (!isApplied) {
       button.onclick = handleMarkAsApplied;
     }
 
-    const site = detectJobSite();
     applySiteSpecificButtonStyles(button, site);
     placeButton(button, container, site);
+
   } catch (error) {
-    console.error("Failed to initialize application tracker:", error);
+    console.error("Error injecting button:", error);
   }
 }
 
 /**
- * Watch for page changes (SPA navigation)
+ * Observe page changes (SPA navigation)
+ * Optimized to be less aggressive
  */
 function observePageChanges() {
   let lastUrl = window.location.href;
 
-  // Watch for URL changes
-  const observer = new MutationObserver(() => {
+  // Disconnect existing observer if any
+  if (observer) {
+    observer.disconnect();
+  }
+
+  observer = new MutationObserver(() => {
+    // Cheap check: has URL changed?
     const currentUrl = window.location.href;
     if (currentUrl !== lastUrl) {
       lastUrl = currentUrl;
 
-      // Remove old button
+      // Remove old button immediately to prevent stale state
       const oldButton = document.getElementById(BUTTON_ID);
       if (oldButton) {
         oldButton.remove();
@@ -527,22 +615,32 @@ function observePageChanges() {
 
       // Reinitialize after navigation with short debounce
       // 200ms is enough to let the framework start rendering but fast enough to feel instant
-      navigationTimeout = setTimeout(initializeButton, 200);
+      navigationTimeout = setTimeout(() => {
+        // Reset cached site on navigation as we might have moved sections
+        // (though unlikely to change domain, but good for safety)
+        currentSite = null; 
+        initializeButton();
+      }, 200);
     }
   });
 
+  // Observe body for changes
+  // We need subtree: true for SPAs, but we rely on the fast URL check in the callback
   observer.observe(document.body, {
     childList: true,
     subtree: true,
   });
 }
 
-// Initialize when DOM is ready
+// Initialize
+// Run immediately
+initializeButton();
+// Start observing
+observePageChanges();
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     // Initial load can be immediate or slightly delayed
     setTimeout(initializeButton, 100);
-    observePageChanges();
   });
 } else {
   // If already loaded, start immediately
