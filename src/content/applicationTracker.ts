@@ -15,7 +15,7 @@ const BUTTON_ID = "junting-orbit-applied-btn";
 // Track reference element for generic job boards
 let fallbackReferenceElement: HTMLElement | null = null;
 
-type JobSite = "linkedin" | "indeed" | "thehub" | "unknown";
+type JobSite = "linkedin" | "indeed" | "thehub" | "seek" | "unknown";
 
 /**
  * Detect current job site
@@ -26,6 +26,7 @@ function detectJobSite(): JobSite {
   if (hostname.includes("linkedin.com")) return "linkedin";
   if (hostname.includes("indeed.com")) return "indeed";
   if (hostname.includes("thehub.io")) return "thehub";
+  if (hostname.includes("seek.com") || hostname.includes("seek.co")) return "seek";
 
   return "unknown";
 }
@@ -57,6 +58,10 @@ function isJobPostingPage(): boolean {
 
   if (site === "thehub") {
     return pathname.startsWith("/jobs/");
+  }
+
+  if (site === "seek") {
+    return pathname.startsWith("/job/") || pathname.startsWith("/jobs");
   }
 
   // Universal fallback: Check if there's an "Apply" button on the page
@@ -135,6 +140,11 @@ function findButtonContainer(): HTMLElement | null {
       fallbackReferenceElement = jobBody;
       return jobBody.parentElement ?? jobBody;
     }
+  }
+
+  if (site === "seek") {
+    // Seek specific container logic could go here, but fallback works well
+    // We can add specific selectors if needed in the future
   }
 
   // Universal fallback: Find any button with "apply" text (case-insensitive)
@@ -386,7 +396,7 @@ function showErrorMessage() {
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
     z-index: 10000;
-  `;
+    `;
 
   // Add X icon
   message.innerHTML = `
@@ -432,11 +442,11 @@ async function initializeButton() {
       return;
     }
 
-    // Fast polling for container (max 2 seconds)
+    // Fast polling for container (max 10 seconds for Seek)
     // We check every 100ms to be responsive
     let container: HTMLElement | null = null;
     let attempts = 0;
-    const maxAttempts = 20; // 20 * 100ms = 2 seconds
+    const maxAttempts = 100; // 100 * 100ms = 10 seconds
 
     while (!container && attempts < maxAttempts) {
       // Double-check if button was injected by another process
