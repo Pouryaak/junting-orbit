@@ -2,7 +2,7 @@
  * Application Tracker Content Script
  * Injects "Mark as Applied" button on job posting pages
  *
- * Supported sites: LinkedIn, Indeed
+ * Supported sites: LinkedIn, Indeed, The Hub
  * Security: All user actions validated, XSS prevention
  */
 
@@ -15,14 +15,17 @@ const BUTTON_ID = "junting-orbit-applied-btn";
 // Track reference element for generic job boards
 let fallbackReferenceElement: HTMLElement | null = null;
 
+type JobSite = "linkedin" | "indeed" | "thehub" | "unknown";
+
 /**
  * Detect current job site
  */
-function detectJobSite(): "linkedin" | "indeed" | "unknown" {
+function detectJobSite(): JobSite {
   const hostname = window.location.hostname.toLowerCase();
 
   if (hostname.includes("linkedin.com")) return "linkedin";
   if (hostname.includes("indeed.com")) return "indeed";
+  if (hostname.includes("thehub.io")) return "thehub";
 
   return "unknown";
 }
@@ -50,6 +53,10 @@ function isJobPostingPage(): boolean {
       pathname.includes("/viewjob") ||
       (pathname.includes("/jobs") && window.location.search.includes("vjk="))
     );
+  }
+
+  if (site === "thehub") {
+    return pathname.startsWith("/jobs/");
   }
 
   // Universal fallback: Check if there's an "Apply" button on the page
@@ -120,6 +127,16 @@ function findButtonContainer(): HTMLElement | null {
     }
   }
 
+  if (site === "thehub") {
+    const jobBody = document.querySelector<HTMLElement>(
+      ".view-job-details__body"
+    );
+    if (jobBody) {
+      fallbackReferenceElement = jobBody;
+      return jobBody.parentElement ?? jobBody;
+    }
+  }
+
   // Universal fallback: Find any button with "apply" text (case-insensitive)
   const allButtons = Array.from(
     document.querySelectorAll<HTMLElement>(
@@ -147,7 +164,7 @@ function findButtonContainer(): HTMLElement | null {
 }
 
 /**
- * Find the reference element to insert button after (Indeed only)
+ * Find the reference element used for site-specific placement
  */
 function findReferenceElement(): HTMLElement | null {
   const site = detectJobSite();
@@ -160,6 +177,15 @@ function findReferenceElement(): HTMLElement | null {
     const saveJobContainer = document.getElementById("saveJobButtonContainer");
 
     return viewJobContainer || saveJobContainer;
+  }
+
+  if (site === "thehub") {
+    const jobBody = document.querySelector<HTMLElement>(
+      ".view-job-details__body"
+    );
+    if (jobBody) {
+      return jobBody;
+    }
   }
 
   if (fallbackReferenceElement) {
@@ -197,6 +223,7 @@ function createAppliedButton(isApplied: boolean): HTMLButtonElement {
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     background-color: ${primaryColor};
     color: white;
+    min-height: 40px;
   `;
 
   // Add hover effect
@@ -216,6 +243,39 @@ function createAppliedButton(isApplied: boolean): HTMLButtonElement {
   button.innerHTML = `<img src="${logoUrl}" alt="JO" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;"> <span>${text}</span>`;
 
   return button;
+}
+
+function applySiteSpecificButtonStyles(
+  button: HTMLButtonElement,
+  site: JobSite
+) {
+  if (site === "thehub") {
+    button.style.marginLeft = "0";
+    button.style.marginBottom = "16px";
+  }
+}
+
+function placeButton(
+  button: HTMLButtonElement,
+  container: HTMLElement,
+  site: JobSite
+) {
+  const referenceElement = findReferenceElement();
+
+  if (referenceElement && container.contains(referenceElement)) {
+    if (site === "thehub") {
+      referenceElement.insertAdjacentElement("beforebegin", button);
+    } else {
+      referenceElement.insertAdjacentElement("afterend", button);
+    }
+    return;
+  }
+
+  if (site === "thehub") {
+    container.insertBefore(button, container.firstChild);
+  } else {
+    container.appendChild(button);
+  }
 }
 
 /**
@@ -260,18 +320,14 @@ function updateButtonState(isApplied: boolean) {
 
   const container = findButtonContainer();
   if (container) {
+    const site = detectJobSite();
     const newButton = createAppliedButton(isApplied);
     if (!isApplied) {
       newButton.onclick = handleMarkAsApplied;
     }
 
-    // For Indeed, insert after the reference element
-    const referenceElement = findReferenceElement();
-    if (referenceElement && container.contains(referenceElement)) {
-      referenceElement.after(newButton);
-    } else {
-      container.appendChild(newButton);
-    }
+    applySiteSpecificButtonStyles(newButton, site);
+    placeButton(newButton, container, site);
   }
 }
 
@@ -401,12 +457,9 @@ async function injectButton(container: HTMLElement) {
       button.onclick = handleMarkAsApplied;
     }
 
-    const referenceElement = findReferenceElement();
-    if (referenceElement && container.contains(referenceElement)) {
-      referenceElement.insertAdjacentElement("afterend", button);
-    } else {
-      container.appendChild(button);
-    }
+    const site = detectJobSite();
+    applySiteSpecificButtonStyles(button, site);
+    placeButton(button, container, site);
   } catch (error) {
     console.error("Failed to initialize application tracker:", error);
   }
@@ -442,7 +495,6 @@ function observePageChanges() {
 }
 
 // Initialize when DOM is ready
-
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     setTimeout(initializeButton, 1000);

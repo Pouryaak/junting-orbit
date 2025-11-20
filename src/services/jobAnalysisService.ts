@@ -79,6 +79,15 @@ export async function extractJobDescription(
           }
         }
 
+        if (!jobDescription && hostname.includes("thehub.io")) {
+          const hubDescription = document.querySelector(
+            ".view-job-details__body"
+          );
+          if (hubDescription) {
+            jobDescription = collectDeepText(hubDescription);
+          }
+        }
+
         // Try to find job description container (common selectors)
         const descriptionSelectors = [
           "#jobDescriptionText",
