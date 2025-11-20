@@ -10,7 +10,7 @@
 import { sanitizeString, sanitizeUrl } from "./storage";
 
 // Maximum number of history entries to store (keeps storage under 25KB)
-const MAX_HISTORY_ENTRIES = 10;
+export const MAX_HISTORY_ITEMS = 20;
 
 // Maximum string lengths for security and storage optimization
 const MAX_TITLE_LENGTH = 200;
@@ -196,8 +196,8 @@ export function addToHistory(
   // Add new entry at the beginning (most recent first)
   const updatedHistory = [newEntry, ...validHistory];
 
-  // Keep only the most recent MAX_HISTORY_ENTRIES
-  return updatedHistory.slice(0, MAX_HISTORY_ENTRIES);
+  // Keep only the most recent MAX_HISTORY_ITEMS
+  return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
 }
 
 /**

@@ -142,12 +142,10 @@ function isJobPostingPage(): boolean {
 
   const config = SITE_CONFIGS[site];
   if (config && site !== "unknown") {
-    if (config.isJobPage(pathname, href)) {
-      return true;
-    }
+    return config.isJobPage(pathname, href);
   }
 
-  // Universal fallback
+  // Universal fallback only for unknown sites
   const allButtons = Array.from(
     document.querySelectorAll("button, a[role='button'], a[href*='apply'], a")
   );

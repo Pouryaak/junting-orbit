@@ -144,6 +144,14 @@ export const HistoryTab: React.FC = () => {
           </div>
         )}
       </div>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+        <p className="font-medium mb-1">Your Top 20 Job Finds 🌟</p>
+        <p>
+          I'm keeping your latest 20 analyses safe right here on your device! Just a heads up: if you uninstall, they vanish like a ninja. 🥷💨 
+          But get excited—I'm building a <strong>Premium</strong> cloud vault to keep your entire career journey safe forever! 🚀✨
+        </p>
+      </div>
 
       {history.length > 0 && (
         <div className="flex flex-wrap gap-2 items-center border rounded-lg px-3 py-2 bg-card/50">
