@@ -39,12 +39,31 @@ export async function extractJobDescription(
       func: () => {
         // Base extraction - can be extended for specific sites
         const url = window.location.href;
-        const title = document.querySelector("h1")?.textContent?.trim() || "";
-        const company =
-          document
-            .querySelector('[data-testid="company-name"], .company-name, h2')
-            ?.textContent?.trim() || "";
         const hostname = window.location.hostname.toLowerCase();
+        
+        // Site-specific title and company extraction
+        let title = "";
+        let company = "";
+
+        if (hostname.includes("linkedin.com")) {
+          title = document.querySelector(".job-details-jobs-unified-top-card__job-title, h1")?.textContent?.trim() || "";
+          company = document.querySelector(".job-details-jobs-unified-top-card__company-name a, .job-details-jobs-unified-top-card__company-name")?.textContent?.trim() || "";
+        } else if (hostname.includes("indeed.com")) {
+          title = document.querySelector('h2[data-testid="jobsearch-JobInfoHeader-title"] span')?.textContent?.trim() || 
+                  document.querySelector('h2[data-testid="jobsearch-JobInfoHeader-title"]')?.textContent?.trim() || "";
+          company = document.querySelector("[data-company-name='true'], .jobsearch-CompanyInfoContainer a")?.textContent?.trim() || "";
+        } else if (hostname.includes("seek.com")) {
+          title = document.querySelector('[data-automation="job-detail-title"] a')?.textContent?.trim() || 
+                  document.querySelector('[data-automation="job-detail-title"]')?.textContent?.trim() || "";
+          company = document.querySelector('[data-automation="advertiser-name"]')?.textContent?.trim() || "";
+        } else if (hostname.includes("thehub.io")) {
+          title = document.querySelector("h2.view-job-details__title")?.textContent?.trim() || "";
+          company = document.querySelector(".view-job-details__company-name")?.textContent?.trim() || "";
+        } else {
+          // Universal fallback
+          title = document.querySelector("h1")?.textContent?.trim() || "";
+          company = document.querySelector('[data-testid="company-name"], .company-name, h2')?.textContent?.trim() || "";
+        }
         let jobDescription = "";
         const collectDeepText = (root: Element): string => {
           const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

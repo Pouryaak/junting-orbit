@@ -13,6 +13,7 @@ import {
   BarChart3,
   Calendar,
   CheckCircle2,
+  Download,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -126,6 +127,59 @@ export const HistoryTab: React.FC = () => {
     chrome.tabs.create({ url });
   };
 
+  const handleExportCSV = () => {
+    if (history.length === 0) return;
+
+    // Define CSV headers
+    const headers = [
+      "Date",
+      "Company",
+      "Title",
+      "Match Score",
+      "Fit Label",
+      "Decision",
+      "Applied",
+      "URL"
+    ];
+
+    // Convert history to CSV rows
+    const rows = history.map(entry => {
+      const date = new Date(entry.analyzedAt).toLocaleDateString();
+      const applied = entry.appliedAt ? "Yes" : "No";
+      
+      // Escape quotes and wrap fields in quotes to handle commas
+      const escape = (field: string | number) => `"${String(field).replace(/"/g, '""')}"`;
+
+      return [
+        escape(date),
+        escape(entry.company),
+        escape(entry.title),
+        escape(entry.matchScore),
+        escape(entry.label),
+        escape(entry.decisionHelper),
+        escape(applied),
+        escape(entry.url)
+      ].join(",");
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    // Create blob and download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.setAttribute("href", url);
+    link.setAttribute("download", `junting-orbit-history-${timestamp}.csv`);
+    link.style.visibility = "hidden";
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -139,8 +193,20 @@ export const HistoryTab: React.FC = () => {
           </div>
         </div>
         {history.length > 0 && (
-          <div className="text-xs text-muted-foreground">
-            {history.length} saved {history.length === 1 ? "analysis" : "analyses"}
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground">
+              {history.length} saved {history.length === 1 ? "analysis" : "analyses"}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="h-7 text-xs gap-1 ml-2"
+              title="Download history as CSV"
+            >
+              <Download className="h-3 w-3" />
+              Export CSV
+            </Button>
           </div>
         )}
       </div>

@@ -17,6 +17,8 @@ export interface StoredData {
   coverLetter: string | null;
   analyzedUrl: string | null;
   analyzedAt: number | null;
+  analyzedTitle?: string | null;
+  analyzedCompany?: string | null;
   hasCompletedOnboarding?: boolean;
   userProfile?: {
     full_name: string | null;
@@ -103,6 +105,18 @@ function validateStoredData(data: unknown): data is StoredData {
   // Validate timestamp
   if (d.analyzedAt !== null && d.analyzedAt !== undefined) {
     if (typeof d.analyzedAt !== "number" || d.analyzedAt < 0) return false;
+  }
+
+  // Validate analyzedTitle
+  if (d.analyzedTitle !== null && d.analyzedTitle !== undefined) {
+    if (typeof d.analyzedTitle !== "string") return false;
+    if (d.analyzedTitle.length > 500) return false; // Reasonable limit
+  }
+
+  // Validate analyzedCompany
+  if (d.analyzedCompany !== null && d.analyzedCompany !== undefined) {
+    if (typeof d.analyzedCompany !== "string") return false;
+    if (d.analyzedCompany.length > 500) return false; // Reasonable limit
   }
 
   if ("usagePlan" in d && d.usagePlan !== undefined && d.usagePlan !== null) {
@@ -194,6 +208,8 @@ export async function getStoredData(): Promise<StoredData> {
             coverLetter: null,
             analyzedUrl: null,
             analyzedAt: null,
+            analyzedTitle: null, // Default for new field
+            analyzedCompany: null, // Default for new field
             hasCompletedOnboarding: false,
             usagePlan: null,
             usageLimit: null,
@@ -213,6 +229,8 @@ export async function getStoredData(): Promise<StoredData> {
             coverLetter: null,
             analyzedUrl: null,
             analyzedAt: null,
+            analyzedTitle: null, // Default for new field
+            analyzedCompany: null, // Default for new field
             hasCompletedOnboarding: false,
             usagePlan: null,
             usageLimit: null,
@@ -257,6 +275,12 @@ export async function saveStoredData(data: StoredData): Promise<void> {
         coverLetter: data.coverLetter ? sanitizeString(data.coverLetter) : null,
         analyzedUrl: data.analyzedUrl ? sanitizeUrl(data.analyzedUrl) : null,
         analyzedAt: data.analyzedAt,
+        analyzedTitle: data.analyzedTitle
+          ? sanitizeString(data.analyzedTitle)
+          : null,
+        analyzedCompany: data.analyzedCompany
+          ? sanitizeString(data.analyzedCompany)
+          : null,
         hasCompletedOnboarding:
           typeof data.hasCompletedOnboarding === "boolean"
             ? data.hasCompletedOnboarding

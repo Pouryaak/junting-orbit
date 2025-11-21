@@ -138,6 +138,8 @@ export const SummaryTab: React.FC = () => {
   const [validationError, setValidationError] = useState<ValidationError | null>(null);
   const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
   const [existingJobEntry, setExistingJobEntry] = useState<JobHistoryEntry | null>(null);
+  const [analyzedTitle, setAnalyzedTitle] = useState<string | null>(null);
+  const [analyzedCompany, setAnalyzedCompany] = useState<string | null>(null);
   const [rateLimitState, setRateLimitState] = useState<RateLimitState>(DEFAULT_RATE_LIMIT_STATE);
 
   const isQuotaDepleted = isRateLimited(rateLimitState, Date.now());
@@ -155,6 +157,8 @@ export const SummaryTab: React.FC = () => {
         
         if (stored.assessment && stored.analyzedUrl) {
           setAssessment(stored.assessment);
+          setAnalyzedTitle(stored.analyzedTitle || null);
+          setAnalyzedCompany(stored.analyzedCompany || null);
         }
         
         // Load job history
@@ -236,6 +240,8 @@ export const SummaryTab: React.FC = () => {
       }
 
       setAssessment(localAssessment);
+      setAnalyzedTitle(jobDescription.title || null);
+      setAnalyzedCompany(jobDescription.company || null);
 
       const historyEntry = await createHistoryEntry({
         url: jobDescription.url,
@@ -257,6 +263,8 @@ export const SummaryTab: React.FC = () => {
         assessment: localAssessment,
         coverLetter: analysis.cover_letter_text,
         analyzedUrl: jobDescription.url,
+        analyzedTitle: jobDescription.title,
+        analyzedCompany: jobDescription.company,
         analyzedAt: Date.now(),
         jobHistory: updatedHistory,
       };
@@ -356,6 +364,8 @@ export const SummaryTab: React.FC = () => {
         isQuotaDepleted={isQuotaDepleted}
       />
 
+      
+
       <div className="grid grid-cols-2 gap-6">
         {/* Left Column - Main Analysis */}
         <div className="space-y-4">
@@ -389,6 +399,12 @@ export const SummaryTab: React.FC = () => {
 
         {/* Right Column - Flags & Details */}
         <div className="space-y-4">
+          {analyzedTitle && analyzedCompany && (
+        <div className="mb-6 bg-card rounded-lg border p-4 shadow-sm">
+          <h3 className="font-semibold text-lg leading-tight text-center">{analyzedTitle}</h3>
+          <p className="text-muted-foreground text-sm mt-1 text-center font-medium">{analyzedCompany}</p>
+        </div>
+      )}
           <FitAssessmentCard assessment={assessment} />
         </div>
       </div>
