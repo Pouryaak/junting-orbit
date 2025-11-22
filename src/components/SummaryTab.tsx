@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { validateJobDescription, type ValidationError } from '@/lib/jobDescriptionValidator';
-import { getCurrentTabUrl, getStoredData, saveStoredData } from '@/lib/storage';
+import { getStoredData, saveStoredData } from '@/lib/storage';
 import { createHistoryEntry, addToHistory, getJobByUrl, type JobHistoryEntry } from '@/lib/jobHistory';
 import {
   analyzeJob as analyzeJobAPI,
@@ -37,19 +37,7 @@ function convertAPIAssessment(apiAssessment: APIFitAssessment): FitAssessment {
   };
 }
 
-interface RateLimitState {
-  plan: string | null;
-  limit: number | null;
-  remaining: number | null;
-  updatedAt: number | null;
-}
 
-const DEFAULT_RATE_LIMIT_STATE: RateLimitState = {
-  plan: null,
-  limit: null,
-  remaining: null,
-  updatedAt: null,
-};
 
 function isSameDay(timestamp: number | null, reference: number): boolean {
   if (!timestamp) {
@@ -117,91 +105,68 @@ function isRateLimited(rate: RateLimitState, reference: number): boolean {
     return false;
   }
 
-  if (
-    rate.limit !== null &&
-    rate.remaining !== null &&
-    rate.remaining <= 0 &&
-    isSameDay(rate.updatedAt, reference)
-  ) {
-    return true;
+  // If we have a valid remaining count from the backend, trust it.
+  // The backend handles the reset logic.
+  if (rate.remaining !== null && rate.remaining <= 0) {
+     // Check if the data is stale (e.g. from yesterday)
+     // If it's from yesterday, we might want to optimistically reset IF we couldn't fetch fresh data.
+     // But since we fetch fresh data on mount, we can generally trust 'remaining'.
+     // However, if fetch failed, we fall back to stored data.
+     // If stored data is old, we should probably allow it (optimistic) or block it?
+     // The user said: "it only fetches new information ... when the analyze button is hit"
+     // Now we fetch on mount. So 'rate' should be fresh.
+     // If 'rate.updatedAt' is from a previous day, and we failed to fetch, 
+     // we might be blocking unnecessarily. 
+     // Let's keep the isSameDay check as a fallback for when fetch fails?
+     // Actually, if we successfully fetched, updatedAt will be NOW.
+     // So isSameDay(rate.updatedAt, now) will be true.
+     // If we failed to fetch, updatedAt will be old.
+     // If updatedAt is old (different day), and remaining is 0, should we block?
+     // Probably not, because it might have reset.
+     // So: Block ONLY if remaining <= 0 AND it's the same day.
+     return isSameDay(rate.updatedAt, reference);
   }
 
   return false;
 }
 
-export const SummaryTab: React.FC = () => {
-  const [assessment, setAssessment] = useState<FitAssessment | null>(null);
+import { type AppData, type RateLimitState } from '@/hooks/useAppData';
+
+interface SummaryTabProps {
+  appData: AppData;
+  onUpdateData: (updates: Partial<AppData>) => void;
+}
+
+export const SummaryTab: React.FC<SummaryTabProps> = ({ appData, onUpdateData }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
-  const [storedUrl, setStoredUrl] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [validationError, setValidationError] = useState<ValidationError | null>(null);
-  const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
   const [existingJobEntry, setExistingJobEntry] = useState<JobHistoryEntry | null>(null);
-  const [analyzedTitle, setAnalyzedTitle] = useState<string | null>(null);
-  const [analyzedCompany, setAnalyzedCompany] = useState<string | null>(null);
-  const [rateLimitState, setRateLimitState] = useState<RateLimitState>(DEFAULT_RATE_LIMIT_STATE);
+
+  const {
+    currentUrl,
+    storedUrl,
+    assessment,
+    analyzedTitle,
+    analyzedCompany,
+    jobHistory,
+    rateLimitState,
+  } = appData;
 
   const isQuotaDepleted = isRateLimited(rateLimitState, Date.now());
   const dailyLimit = rateLimitState.limit ?? null;
 
-  // Load stored data on mount
+  // Check if job exists in history when URL changes
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const stored = await getStoredData();
-        const url = await getCurrentTabUrl();
-        
-        setCurrentUrl(url);
-        setStoredUrl(stored.analyzedUrl);
-        
-        if (stored.assessment && stored.analyzedUrl) {
-          setAssessment(stored.assessment);
-          setAnalyzedTitle(stored.analyzedTitle || null);
-          setAnalyzedCompany(stored.analyzedCompany || null);
-        }
-        
-        // Load job history
-        if (stored.jobHistory && Array.isArray(stored.jobHistory)) {
-          setJobHistory(stored.jobHistory);
-        }
-
-        setRateLimitState({
-          plan: stored.usagePlan ?? null,
-          limit: stored.usageLimit ?? null,
-          remaining: stored.usageRemaining ?? null,
-          updatedAt: stored.usageUpdatedAt ?? null,
-        });
-      } catch (error) {
-        const appError = handleError(error, 'LoadStoredData');
-        console.error('Failed to load stored data:', appError);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // Check URL when tab changes and check if job exists in history
-  useEffect(() => {
-    const checkUrl = async () => {
-      const url = await getCurrentTabUrl();
-      setCurrentUrl(url);
-      
-      // Check if this job is already in history
-      if (url && jobHistory.length > 0) {
-        const existingJob = await getJobByUrl(jobHistory, url);
+    const checkHistory = async () => {
+      if (currentUrl && jobHistory.length > 0) {
+        const existingJob = await getJobByUrl(jobHistory, currentUrl);
         setExistingJobEntry(existingJob);
       } else {
         setExistingJobEntry(null);
       }
     };
-
-    checkUrl();
-    const interval = setInterval(checkUrl, 1000);
-    return () => clearInterval(interval);
-  }, [jobHistory]);
+    checkHistory();
+  }, [currentUrl, jobHistory]);
 
   const handleAnalyze = async () => {
     setIsLoading(true);
@@ -235,13 +200,18 @@ export const SummaryTab: React.FC = () => {
       const localAssessment = convertAPIAssessment(analysis.fit_assessment);
       const rateUpdate = deriveRateLimitState(rateLimit, rateLimitState);
 
+      // Prepare updates
+      const updates: Partial<AppData> = {};
+
       if (rateUpdate) {
-        setRateLimitState(rateUpdate);
+        updates.rateLimitState = rateUpdate;
       }
 
-      setAssessment(localAssessment);
-      setAnalyzedTitle(jobDescription.title || null);
-      setAnalyzedCompany(jobDescription.company || null);
+      updates.assessment = localAssessment;
+      updates.analyzedTitle = jobDescription.title || null;
+      updates.analyzedCompany = jobDescription.company || null;
+      updates.storedUrl = jobDescription.url;
+      updates.currentUrl = jobDescription.url;
 
       const historyEntry = await createHistoryEntry({
         url: jobDescription.url,
@@ -255,8 +225,12 @@ export const SummaryTab: React.FC = () => {
       });
 
       const updatedHistory = addToHistory(jobHistory, historyEntry);
-      setJobHistory(updatedHistory);
+      updates.jobHistory = updatedHistory;
 
+      // Update local state via prop
+      onUpdateData(updates);
+
+      // Persist to storage
       const stored = await getStoredData();
       const nextStored = {
         ...stored,
@@ -280,9 +254,6 @@ export const SummaryTab: React.FC = () => {
 
       window.dispatchEvent(new Event('jobHistoryUpdated'));
 
-      setStoredUrl(jobDescription.url);
-      setCurrentUrl(jobDescription.url);
-
       window.dispatchEvent(
         new CustomEvent('coverLetterUpdated', {
           detail: { coverLetter: analysis.cover_letter_text },
@@ -300,7 +271,7 @@ export const SummaryTab: React.FC = () => {
         const nextRateState =
           deriveRateLimitState(error.rateLimit, rateLimitState) || fallbackRateState;
 
-        setRateLimitState(nextRateState);
+        onUpdateData({ rateLimitState: nextRateState });
 
         const stored = await getStoredData();
         await saveStoredData({
@@ -320,15 +291,6 @@ export const SummaryTab: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  // Show loading state while initializing
-  if (!isInitialized) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
 
   const urlChanged = currentUrl && storedUrl && currentUrl !== storedUrl;
 
@@ -363,8 +325,6 @@ export const SummaryTab: React.FC = () => {
         usageRemaining={rateLimitState.remaining}
         isQuotaDepleted={isQuotaDepleted}
       />
-
-      
 
       <div className="grid grid-cols-2 gap-6">
         {/* Left Column - Main Analysis */}

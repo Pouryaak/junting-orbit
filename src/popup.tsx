@@ -9,6 +9,7 @@ import { SummaryTab } from "./components/SummaryTab"
 import { HistoryTab } from "./components/HistoryTab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
 import { getStoredData, saveStoredData } from "./lib/storage"
+import { useAppData } from "./hooks/useAppData"
 import "./styles/globals.css"
 
 /**
@@ -60,8 +61,10 @@ function Popup() {
     setShowOnboarding(false);
   };
 
-  // Show loading state while checking
-  if (isChecking) {
+  const { data: appData, updateData } = useAppData();
+
+  // Show loading state while checking onboarding or initializing app data
+  if (isChecking || !appData.isInitialized) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-background min-w-[800px] min-h-[600px]">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -122,7 +125,7 @@ function Popup() {
             </TabsList>
             
             <TabsContent value="summary" className="mt-0 focus-visible:outline-none space-y-6">
-              <SummaryTab />
+              <SummaryTab appData={appData} onUpdateData={updateData} />
             </TabsContent>
             
             <TabsContent value="cover-letter" className="mt-0 focus-visible:outline-none">

@@ -7,6 +7,7 @@ import { SettingsTab } from './SettingsTab';
 import { SummaryTab } from './SummaryTab';
 import { Sheet, SheetContent } from './ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { useAppData } from '@/hooks/useAppData';
 
 interface FloatingButtonProps {
   className?: string;
@@ -18,6 +19,7 @@ interface FloatingButtonProps {
  */
 export const FloatingButton: React.FC<FloatingButtonProps> = ({ className }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: appData, updateData } = useAppData();
   const logoUrl = chrome.runtime.getURL('logo.png');
 
   return (
@@ -60,7 +62,7 @@ export const FloatingButton: React.FC<FloatingButtonProps> = ({ className }) => 
               </TabsList>
               
               <TabsContent value="summary" className="mt-6">
-                <SummaryTab />
+                <SummaryTab appData={appData} onUpdateData={updateData} />
               </TabsContent>
               
               <TabsContent value="cover-letter" className="mt-6">
@@ -77,4 +79,3 @@ export const FloatingButton: React.FC<FloatingButtonProps> = ({ className }) => 
     </>
   );
 };
-

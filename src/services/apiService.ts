@@ -362,6 +362,34 @@ export async function submitFeedback(
   }
 }
 
+export interface UsageResponse {
+  plan: string;
+  limit: number | null;
+  usedToday: number;
+  remainingToday: number | null;
+  resetAt: string;
+}
+
+/**
+ * Get current usage stats
+ */
+export async function getUsage(): Promise<UsageResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/usage`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch usage");
+  }
+
+  return response.json();
+}
+
 /**
  * Get login URL
  */
