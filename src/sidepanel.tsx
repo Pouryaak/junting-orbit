@@ -16,10 +16,21 @@ import "./styles/globals.css"
  * SidePanel component for Junting Orbit extension
  * This is the main UI that appears in the Chrome Side Panel
  */
+import { RadialMenu, RadialMenuItem } from "./components/RadialMenu"
+import { UsageIndicator } from "./components/summary/UsageIndicator"
+import { FileText, History, Settings, LayoutDashboard } from "lucide-react"
+
+/**
+ * SidePanel component for Junting Orbit extension
+ * This is the main UI that appears in the Chrome Side Panel
+ */
 function SidePanel() {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [activeTab, setActiveTab] = useState("summary");
   const { data: appData, updateData } = useAppData();
+  const { rateLimitState } = appData;
+  const isQuotaDepleted = rateLimitState.remaining !== null && rateLimitState.remaining <= 0;
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -84,19 +95,50 @@ function SidePanel() {
     );
   }
 
+  const menuItems: RadialMenuItem[] = [
+    { id: "summary", value: "summary", label: "Summary", icon: LayoutDashboard },
+    { id: "cover-letter", value: "cover-letter", label: "Cover Letter", icon: FileText },
+    { id: "history", value: "history", label: "History", icon: History },
+    { id: "settings", value: "settings", label: "Settings", icon: Settings },
+  ];
+
   // Show main UI with tabs
   return (
-    <div className="w-full h-full flex flex-col bg-background min-h-screen">
+    <div className="w-full h-full flex flex-col bg-background min-h-screen relative">
       {/* Header - Fixed at top */}
       <div className="flex-shrink-0">
         <ExtensionHeader />
       </div>
       
       {/* Main Content with Tabs - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0 bg-background">
+      <div className="flex-1 overflow-y-auto min-h-0 bg-background pb-5">
         <div className="p-4">
-          <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="w-full h-auto flex flex-wrap mb-6 bg-muted rounded-lg p-1.5 gap-1">
+
+
+          {/* Radial Menu & Usage - Visible on small screens (< 507px) */}
+          <div className="mb-6 min-[507px]:hidden sticky -top-4 z-50 py-2 bg-background/80 backdrop-blur-sm -mx-4 px-4 border-b border-border/40 flex items-center justify-between">
+            <RadialMenu 
+              items={menuItems} 
+              activeValue={activeTab} 
+              onValueChange={setActiveTab} 
+            />
+            
+            {/* Usage Indicator in Sticky Header */}
+            <div className="mr-2">
+              <UsageIndicator 
+                usagePlan={rateLimitState.plan}
+                usageLimit={rateLimitState.limit}
+                usageRemaining={rateLimitState.remaining}
+                isQuotaDepleted={isQuotaDepleted}
+                compact={true}
+              />
+            </div>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+
+            {/* TabsList - Hidden on small screens (< 507px) */}
+            <TabsList className="w-full h-auto flex flex-wrap mb-6 bg-muted rounded-lg p-1.5 gap-1 hidden min-[507px]:flex">
               <TabsTrigger 
                 value="summary" 
                 className="flex-1 text-sm font-semibold rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all hover:bg-background/50"
@@ -141,6 +183,7 @@ function SidePanel() {
           </Tabs>
         </div>
       </div>
+
       <Toaster />
     </div>
   )

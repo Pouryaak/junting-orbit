@@ -1,83 +1,87 @@
 import React, { useState } from "react";
-import { User, Info, MessageCircle, Phone, Plus } from "lucide-react";
+import { Menu, X, LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type RadialMenuItem = {
+export type RadialMenuItem = {
   id: string;
-  href?: string;
-  label?: string;
+  value: string;
+  label: string;
+  icon: LucideIcon;
 };
 
-const POSITIONS = [
-  { x: 150, y: 0 },
-  { x: 150, y: 90 },
-  { x: 90, y: 150 },
-  { x: 0, y: 150 },
-];
-
-const ICONS = [User, Info, MessageCircle, Phone];
-
-const DEFAULT_ITEMS: RadialMenuItem[] = [
-  { id: "account", href: "#account", label: "Account" },
-  { id: "info", href: "#info", label: "Info" },
-  { id: "home", href: "#home", label: "Messages" },
-  { id: "contact", href: "#contact", label: "Contact" },
-];
-
 interface RadialMenuProps {
-  items?: RadialMenuItem[];
+  items: RadialMenuItem[];
+  activeValue: string;
+  onValueChange: (value: string) => void;
 }
 
-/**
- * Radial floating menu – React + Tailwind version of your original snippet.
- * - Uses lucide-react icons
- * - Same translation pattern as your JS
- */
-export const RadialMenu: React.FC<RadialMenuProps> = ({ items = DEFAULT_ITEMS }) => {
+// Positions fanning out vertically to accommodate text labels
+const POSITIONS = [
+  { x: 10, y: 60 },    // First item
+  { x: 10, y: 120 },   // Second item
+  { x: 10, y: 180 },   // Third item
+  { x: 10, y: 240 },   // Fourth item
+];
+
+export const RadialMenu: React.FC<RadialMenuProps & { className?: string }> = ({ items, activeValue, onValueChange, className }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  const toggleOpen = () => setIsOpen((prev) => !prev);
+
+  const handleSelect = (value: string) => {
+    onValueChange(value);
+    setIsOpen(false);
+  };
+
   return (
-    <div className="relative h-[220px] w-[220px]">
+    <div className={cn("relative z-50 w-14 h-14", className)}>
       {/* Menu items */}
       {items.map((item, index) => {
-        const Icon = ICONS[index] ?? User;
-        const pos = POSITIONS[index] ?? { x: 0, y: 0 };
-
+        // Use predefined positions or default to 0,0
+        const pos = POSITIONS[index] || { x: 0, y: 0 };
+        
         const transform = isOpen
           ? `translate(${pos.x}px, ${pos.y}px)`
           : "translate(0, 0)";
 
+        const isActive = activeValue === item.value;
+
         return (
-          <a
+          <button
             key={item.id}
-            href={item.href}
+            onClick={() => handleSelect(item.value)}
             aria-label={item.label}
-            className="
-              absolute grid h-[70px] w-[70px] place-items-center
-              rounded-full bg-white text-indigo-500
-              shadow-md transition-transform duration-500
-            "
-            style={{ transform }}
+            className={cn(
+              "absolute top-0 left-0 flex items-center gap-3 pl-3 pr-4 h-12 min-w-[140px] rounded-full shadow-md transition-all duration-300 ease-out origin-top-left",
+              isActive 
+                ? "bg-primary text-primary-foreground" 
+                : "bg-background text-foreground hover:bg-muted",
+              isOpen ? "opacity-100 visible scale-100" : "opacity-0 invisible scale-90"
+            )}
+            style={{ 
+              transform,
+              transitionDelay: isOpen ? `${index * 50}ms` : '0ms',
+              zIndex: -1 - index // Stack behind the toggle button
+            }}
           >
-            <Icon className="h-6 w-6" />
-          </a>
+            <item.icon className="h-5 w-5 shrink-0" />
+            <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+          </button>
         );
       })}
 
       {/* Toggle button */}
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        aria-label="Toggle radial menu"
+        onClick={toggleOpen}
+        aria-label="Toggle menu"
         aria-expanded={isOpen}
-        className={`
-          absolute grid h-24 w-24 place-items-center
-          rounded-full bg-slate-900 text-white shadow-lg
-          transition-transform duration-300
-          top-2 left-2
-          ${isOpen ? "rotate-45" : ""}
-        `}
+        className={cn(
+          "relative grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:bg-primary/90 z-10",
+          // No rotation for hamburger/X switch, just icon swap
+        )}
       >
-        <Plus className="h-8 w-8" />
+        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
     </div>
   );

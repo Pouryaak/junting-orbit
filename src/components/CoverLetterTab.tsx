@@ -205,7 +205,7 @@ export const CoverLetterTab: React.FC = () => {
           // Ensure tabs remain clickable after textarea loses focus
           e.currentTarget.style.pointerEvents = 'auto';
         }}
-        className="w-full h-[480px] p-4 rounded-lg border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 relative z-0"
+        className="w-full h-[60vh] p-4 rounded-lg border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 relative z-0"
         placeholder="Your AI-generated cover letter will appear here..."
         style={{ pointerEvents: 'auto' }}
       />

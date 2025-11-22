@@ -14,8 +14,20 @@ import {
   Calendar,
   CheckCircle2,
   Download,
+  Info,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 import { cn } from "@/lib/utils";
 import { getStoredData, STORAGE_KEY } from "@/lib/storage";
 import type { JobHistoryEntry } from "@/lib/jobHistory";
@@ -182,18 +194,53 @@ export const HistoryTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <HistoryIcon className="h-5 w-5 text-primary" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+        <div className="flex items-start gap-2">
+          <HistoryIcon className="h-5 w-5 text-primary mt-1" />
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Job History</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-foreground">Job History</h2>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary">
+                    <Info className="h-4 w-4" />
+                    <span className="sr-only">History Info</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                      <Sparkles className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <DialogTitle className="text-center text-xl">Your Top 20 Job Finds</DialogTitle>
+                    <DialogDescription className="text-center pt-2">
+                      I'm keeping your latest 20 analyses safe right here on your device! Just a heads up: if you uninstall, they vanish like a ninja. 🥷💨 
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-2">
+                    <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground text-center">
+                      <p>
+                        But get excited—I'm building a <strong>Premium</strong> cloud vault to keep your entire career journey safe forever! 🚀✨
+                      </p>
+                    </div>
+                  </div>
+                  <DialogFooter className="sm:justify-center">
+                    <DialogClose asChild>
+                      <Button type="button" variant="default" className="w-full sm:w-auto">
+                        Got it, thanks!
+                      </Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <p className="text-xs text-muted-foreground">
               Review every role you've analyzed and jump back in anytime.
             </p>
           </div>
         </div>
         {history.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
             <div className="text-xs text-muted-foreground">
               {history.length} saved {history.length === 1 ? "analysis" : "analyses"}
             </div>
@@ -209,14 +256,6 @@ export const HistoryTab: React.FC = () => {
             </Button>
           </div>
         )}
-      </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-        <p className="font-medium mb-1">Your Top 20 Job Finds 🌟</p>
-        <p>
-          I'm keeping your latest 20 analyses safe right here on your device! Just a heads up: if you uninstall, they vanish like a ninja. 🥷💨 
-          But get excited—I'm building a <strong>Premium</strong> cloud vault to keep your entire career journey safe forever! 🚀✨
-        </p>
       </div>
 
       {history.length > 0 && (
@@ -299,7 +338,7 @@ export const HistoryTab: React.FC = () => {
         </div>
       )}
 
-      <div className="min-h-[320px] rounded-lg border bg-card p-4">
+      <div className="min-h-[320px] rounded-lg border bg-card p-3 sm:p-4">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
@@ -319,11 +358,11 @@ export const HistoryTab: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="flex flex-col gap-3 w-full">
             {filteredHistory.map((entry) => (
               <div
                 key={entry.id}
-                className="border rounded-lg p-4 bg-background hover:border-primary/40 hover:shadow-sm transition-all"
+                className="border rounded-lg p-3 sm:p-4 bg-background hover:border-primary/40 hover:shadow-sm transition-all w-full max-w-full"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex-1 min-w-0">
@@ -344,19 +383,19 @@ export const HistoryTab: React.FC = () => {
 
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className={cn(
-                    "px-3 py-1 text-xs font-semibold rounded-full border",
+                    "px-3 py-1 text-xs font-semibold rounded-full border whitespace-nowrap",
                     getFitColor(entry.label)
                   )}>
                     {entry.label}
                   </span>
                   <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs font-medium text-foreground">
+                  <span className="text-xs font-medium text-foreground truncate max-w-[100px] sm:max-w-none">
                     {entry.decisionHelper}
                   </span>
                   {entry.appliedAt && (
                     <>
                       <span className="text-xs text-muted-foreground">•</span>
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary/10 text-secondary border border-secondary/30 flex items-center gap-1">
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-secondary/10 text-secondary border border-secondary/30 flex items-center gap-1 whitespace-nowrap">
                         <CheckCircle2 className="h-3 w-3" />
                         Applied
                       </span>
@@ -366,10 +405,10 @@ export const HistoryTab: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 text-xs">
                   {entry.topGreenFlags.length > 0 && (
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1 mb-1 text-green-600">
-                        <TrendingUp className="h-3 w-3" />
-                        <span className="font-semibold">Strengths</span>
+                        <TrendingUp className="h-3 w-3 flex-shrink-0" />
+                        <span className="font-semibold truncate">Strengths</span>
                       </div>
                       <ul className="space-y-0.5 text-muted-foreground">
                         {entry.topGreenFlags.map((flag, i) => (
@@ -382,10 +421,10 @@ export const HistoryTab: React.FC = () => {
                   )}
 
                   {entry.topRedFlags.length > 0 && (
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1 mb-1 text-red-600">
-                        <TrendingDown className="h-3 w-3" />
-                        <span className="font-semibold">Gaps</span>
+                        <TrendingDown className="h-3 w-3 flex-shrink-0" />
+                        <span className="font-semibold truncate">Gaps</span>
                       </div>
                       <ul className="space-y-0.5 text-muted-foreground">
                         {entry.topRedFlags.map((flag, i) => (
@@ -399,14 +438,14 @@ export const HistoryTab: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-xs text-muted-foreground truncate">
                       {formatDate(entry.analyzedAt)}
                     </span>
                     {entry.appliedAt && (
-                      <span className="text-xs text-secondary font-medium flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Applied: {formatDate(entry.appliedAt)}
+                      <span className="text-xs text-secondary font-medium flex items-center gap-1 truncate">
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">Applied: {formatDate(entry.appliedAt)}</span>
                       </span>
                     )}
                   </div>
@@ -414,7 +453,7 @@ export const HistoryTab: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleOpenUrl(entry.url)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs flex-shrink-0 ml-2"
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     View Job
