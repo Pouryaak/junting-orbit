@@ -326,8 +326,8 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({ appData, onUpdateData })
         isQuotaDepleted={isQuotaDepleted}
       />
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* Left Column - Main Analysis */}
+      <div className="flex flex-col gap-6">
+        {/* Main Analysis */}
         <div className="space-y-4">
           {validationError && (
             <Alert
@@ -349,6 +349,13 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({ appData, onUpdateData })
             />
           )}
 
+          {analyzedTitle && analyzedCompany && (
+            <div className="mb-6 bg-card rounded-lg border p-4 shadow-sm">
+              <h3 className="font-semibold text-lg leading-tight text-center">{analyzedTitle}</h3>
+              <p className="text-muted-foreground text-sm mt-1 text-center font-medium">{analyzedCompany}</p>
+            </div>
+          )}
+
           <DecisionHelperCard decision={assessment.decisionHelper} />
 
           <div className="bg-card rounded-lg border p-4">
@@ -357,14 +364,8 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({ appData, onUpdateData })
           </div>
         </div>
 
-        {/* Right Column - Flags & Details */}
+        {/* Flags & Details */}
         <div className="space-y-4">
-          {analyzedTitle && analyzedCompany && (
-        <div className="mb-6 bg-card rounded-lg border p-4 shadow-sm">
-          <h3 className="font-semibold text-lg leading-tight text-center">{analyzedTitle}</h3>
-          <p className="text-muted-foreground text-sm mt-1 text-center font-medium">{analyzedCompany}</p>
-        </div>
-      )}
           <FitAssessmentCard assessment={assessment} />
         </div>
       </div>

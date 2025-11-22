@@ -241,9 +241,9 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 2-Column Layout for Form Fields */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Left Column */}
+      {/* Single Column Layout for Form Fields */}
+      <div className="flex flex-col gap-6">
+        {/* Profile Details */}
         <div className="space-y-4">
           {/* Full Name */}
           <div className="space-y-2">
@@ -318,7 +318,7 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column - Resume Text (spans full height) */}
+        {/* Resume Text */}
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -328,7 +328,7 @@ export const SettingsTab: React.FC = () => {
             value={profile.resume_text || ''}
             onChange={(e) => handleInputChange('resume_text', e.target.value || null)}
             placeholder="Paste your resume text here (at least 30 characters recommended)"
-            className="w-full h-[400px] px-4 py-2 rounded-lg border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="w-full h-[300px] px-4 py-2 rounded-lg border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           />
           <p className="text-xs text-muted-foreground">
             Your resume is used to generate personalized job analysis and cover letters.

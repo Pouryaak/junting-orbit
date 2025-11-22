@@ -113,6 +113,18 @@ export default defineConfig({
           console.log("Created popup.html with correct CSS reference");
         }
 
+        // Fix CSS reference in sidepanel.html
+        if (existsSync("dist/sidepanel.html")) {
+          let htmlContent = readFileSync("dist/sidepanel.html", "utf-8");
+          // Replace any CSS reference with popup.css
+          htmlContent = htmlContent.replace(
+            /href=["'][^"']*\.css["']/g,
+            'href="/popup.css"'
+          );
+          writeFileSync("dist/sidepanel.html", htmlContent);
+          console.log("Updated sidepanel.html with correct CSS reference");
+        }
+
         // Build background script
         await esbuild({
           entryPoints: ["src/background.ts"],
@@ -156,6 +168,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, "index.html"),
+        sidepanel: resolve(__dirname, "sidepanel.html"),
         content: resolve(__dirname, "src/content/index.tsx"),
       },
       output: {
@@ -170,7 +183,8 @@ export default defineConfig({
             // Only generate CSS for popup, not for content script
             if (
               assetInfo.name.includes("popup") ||
-              assetInfo.name.includes("index")
+              assetInfo.name.includes("index") ||
+              assetInfo.name.includes("sidepanel")
             ) {
               return "popup.css";
             }

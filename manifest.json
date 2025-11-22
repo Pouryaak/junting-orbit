@@ -4,7 +4,7 @@
   "short_name": "JuntingOrbit",
   "version": "1.0.0",
   "description": "Analyze job listings, track applications, and generate AI cover letters without leaving the job board.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.indeed.com/*",
@@ -14,9 +14,11 @@
     "https://*.thehub.io/*",
     "https://junting-orbit-server.vercel.app/*"
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
     "default_title": "Open Junting Orbit",
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

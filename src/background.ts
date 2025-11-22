@@ -6,7 +6,9 @@
  */
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Extension installed
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error(error));
 });
 
 // Handle messages from content scripts
