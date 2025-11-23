@@ -8,7 +8,6 @@ export const ExtensionHeader: React.FC = () => {
   return (
     <div className="w-full bg-primary text-primary-foreground px-6 py-1 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-bold text-primary-foreground">Junting Orbit</h1>
         <FeedbackDialog />
       </div>
       <div className="flex items-center">

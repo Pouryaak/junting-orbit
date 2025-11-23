@@ -58,7 +58,7 @@ export const ATSGauge: React.FC<ATSGaugeProps> = ({ score }) => {
   const insight = getScoreInsight(score);
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 space-y-6">
+    <div className="flex flex-col items-center justify-center p-0 space-y-6">
       <div className="relative" style={{ width: size, height: size }}>
         <svg 
           width={size} 

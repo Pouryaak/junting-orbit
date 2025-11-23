@@ -45,6 +45,11 @@ export interface StoredData {
   usageLimit?: number | null;
   usageRemaining?: number | null;
   usageUpdatedAt?: number | null;
+  scanPreferences?: {
+    jobTitle: string;
+    location: string;
+    selectedBoards: string[];
+  } | null;
 }
 
 export const STORAGE_KEY = "junting-orbit-data";
@@ -150,6 +155,19 @@ function validateStoredData(data: unknown): data is StoredData {
     return false;
   }
 
+  if (
+    "scanPreferences" in d &&
+    d.scanPreferences !== undefined &&
+    d.scanPreferences !== null
+  ) {
+    if (typeof d.scanPreferences !== "object") return false;
+    if (typeof d.scanPreferences.jobTitle !== "string") return false;
+    if (typeof d.scanPreferences.location !== "string") return false;
+    if (!Array.isArray(d.scanPreferences.selectedBoards)) return false;
+    if (!d.scanPreferences.selectedBoards.every((b) => typeof b === "string"))
+      return false;
+  }
+
   return true;
 }
 
@@ -215,6 +233,7 @@ export async function getStoredData(): Promise<StoredData> {
             usageLimit: null,
             usageRemaining: null,
             usageUpdatedAt: null,
+            scanPreferences: null,
           });
           return;
         }
@@ -236,6 +255,7 @@ export async function getStoredData(): Promise<StoredData> {
             usageLimit: null,
             usageRemaining: null,
             usageUpdatedAt: null,
+            scanPreferences: null,
           });
           return;
         }
@@ -305,6 +325,15 @@ export async function saveStoredData(data: StoredData): Promise<void> {
           typeof data.usageUpdatedAt === "number" && data.usageUpdatedAt >= 0
             ? data.usageUpdatedAt
             : null,
+        scanPreferences: data.scanPreferences
+          ? {
+              jobTitle: sanitizeString(data.scanPreferences.jobTitle),
+              location: sanitizeString(data.scanPreferences.location),
+              selectedBoards: data.scanPreferences.selectedBoards.map(
+                sanitizeString
+              ),
+            }
+          : null,
       };
 
       // Check storage size (approximate)
